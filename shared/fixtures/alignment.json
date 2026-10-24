@@ -1,0 +1,150 @@
+{
+  "description": "FluentTube AI Section 7.4 mandatory alignment fixtures",
+  "version": 1,
+  "cases": [
+    {
+      "id": "contractions_im",
+      "target": "I'm ready.",
+      "input": "i am ready",
+      "expected_distance": 0,
+      "expected_score": 100,
+      "expected_exact": true,
+      "expected_substitutions": 0,
+      "expected_omissions": 0,
+      "expected_insertions": 0,
+      "expected_operations": ["match", "match", "match"]
+    },
+    {
+      "id": "contractions_ive",
+      "target": "I've been here.",
+      "input": "I have been here",
+      "expected_distance": 0,
+      "expected_score": 100,
+      "expected_exact": true,
+      "expected_substitutions": 0,
+      "expected_omissions": 0,
+      "expected_insertions": 0,
+      "expected_operations": ["match", "match", "match", "match"]
+    },
+    {
+      "id": "contractions_dont",
+      "target": "Don't stop!",
+      "input": "do not stop",
+      "expected_distance": 0,
+      "expected_score": 100,
+      "expected_exact": true,
+      "expected_substitutions": 0,
+      "expected_omissions": 0,
+      "expected_insertions": 0,
+      "expected_operations": ["match", "match", "match"]
+    },
+    {
+      "id": "contractions_cant_cannot",
+      "target": "I can’t go.",
+      "input": "I cannot go",
+      "expected_distance": 0,
+      "expected_score": 100,
+      "expected_exact": true,
+      "expected_substitutions": 0,
+      "expected_omissions": 0,
+      "expected_insertions": 0,
+      "expected_operations": ["match", "match", "match", "match"]
+    },
+    {
+      "id": "substitution_single",
+      "target": "We are at home.",
+      "input": "We is at home",
+      "expected_distance": 1,
+      "expected_score": 75,
+      "expected_exact": false,
+      "expected_substitutions": 1,
+      "expected_omissions": 0,
+      "expected_insertions": 0,
+      "expected_operations": ["match", "substitution", "match", "match"]
+    },
+    {
+      "id": "omission_single",
+      "target": "We are at home.",
+      "input": "We are home",
+      "expected_distance": 1,
+      "expected_score": 75,
+      "expected_exact": false,
+      "expected_substitutions": 0,
+      "expected_omissions": 1,
+      "expected_insertions": 0,
+      "expected_operations": ["match", "match", "omission", "match"]
+    },
+    {
+      "id": "insertion_single",
+      "target": "We are at home.",
+      "input": "We are still at home",
+      "expected_distance": 1,
+      "expected_score": 75,
+      "expected_exact": false,
+      "expected_substitutions": 0,
+      "expected_omissions": 0,
+      "expected_insertions": 1,
+      "expected_operations": ["match", "match", "insertion", "match", "match"]
+    },
+    {
+      "id": "repeated_words_omission",
+      "target": "go go home",
+      "input": "go home",
+      "expected_distance": 1,
+      "expected_score": 67,
+      "expected_exact": false,
+      "expected_substitutions": 0,
+      "expected_omissions": 1,
+      "expected_insertions": 0,
+      "expected_operations": ["omission", "match", "match"]
+    },
+    {
+      "id": "homophone_substitution",
+      "target": "their car",
+      "input": "there car",
+      "expected_distance": 1,
+      "expected_score": 50,
+      "expected_exact": false,
+      "expected_substitutions": 1,
+      "expected_omissions": 0,
+      "expected_insertions": 0,
+      "expected_operations": ["substitution", "match"]
+    },
+    {
+      "id": "ambiguous_contraction_literal",
+      "target": "It's done.",
+      "input": "It is done",
+      "expected_distance": 2,
+      "expected_score": 0,
+      "expected_exact": false,
+      "expected_substitutions": 1,
+      "expected_omissions": 0,
+      "expected_insertions": 1,
+      "expected_operations": ["insertion", "substitution", "match"]
+    },
+    {
+      "id": "empty_input_graceful",
+      "target": "Hello!",
+      "input": "",
+      "expected_distance": 1,
+      "expected_score": 0,
+      "expected_exact": false,
+      "expected_substitutions": 0,
+      "expected_omissions": 1,
+      "expected_insertions": 0,
+      "expected_operations": ["omission"]
+    },
+    {
+      "id": "hyphen_delimiter",
+      "target": "ice-cream",
+      "input": "ice cream",
+      "expected_distance": 0,
+      "expected_score": 100,
+      "expected_exact": true,
+      "expected_substitutions": 0,
+      "expected_omissions": 0,
+      "expected_insertions": 0,
+      "expected_operations": ["match", "match"]
+    }
+  ]
+}

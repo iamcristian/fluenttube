@@ -1,0 +1,72 @@
+{
+  "description": "Deterministic segmentation fixtures for FluentTube AI",
+  "version": "1.0",
+  "cases": [
+    {
+      "name": "basic_two_sentences_three_fragments",
+      "input": [
+        {"start_seconds": 0.0, "end_seconds": 1.2, "text": "I have"},
+        {"start_seconds": 1.2, "end_seconds": 3.0, "text": "a question."},
+        {"start_seconds": 5.0, "end_seconds": 6.0, "text": "Can you help?"}
+      ],
+      "expected": [
+        {"position": 0, "start_seconds": 0.0, "end_seconds": 3.0, "text": "I have a question.", "timing_quality": "caption"},
+        {"position": 1, "start_seconds": 5.0, "end_seconds": 6.0, "text": "Can you help?", "timing_quality": "caption"}
+      ]
+    },
+    {
+      "name": "gap_exactly_1_2s_merges_vs_greater_than_1_2s_flushes",
+      "input": [
+        {"start_seconds": 0.0, "end_seconds": 2.0, "text": "First part"},
+        {"start_seconds": 3.2, "end_seconds": 5.0, "text": "second part."},
+        {"start_seconds": 6.25, "end_seconds": 8.0, "text": "Third part after gap."}
+      ],
+      "expected": [
+        {"position": 0, "start_seconds": 0.0, "end_seconds": 5.0, "text": "First part second part.", "timing_quality": "caption"},
+        {"position": 1, "start_seconds": 6.25, "end_seconds": 8.0, "text": "Third part after gap.", "timing_quality": "caption"}
+      ]
+    },
+    {
+      "name": "abbreviation_does_not_break_sentence",
+      "input": [
+        {"start_seconds": 0.0, "end_seconds": 2.0, "text": "I spoke with Dr."},
+        {"start_seconds": 2.1, "end_seconds": 4.5, "text": "Smith yesterday afternoon."}
+      ],
+      "expected": [
+        {"position": 0, "start_seconds": 0.0, "end_seconds": 4.5, "text": "I spoke with Dr. Smith yesterday afternoon.", "timing_quality": "caption"}
+      ]
+    },
+    {
+      "name": "non_verbal_noise_filtered",
+      "input": [
+        {"start_seconds": 0.0, "end_seconds": 1.5, "text": "[Music]"},
+        {"start_seconds": 1.8, "end_seconds": 4.0, "text": "Welcome to the show."},
+        {"start_seconds": 4.1, "end_seconds": 5.0, "text": "[Applause]"}
+      ],
+      "expected": [
+        {"position": 0, "start_seconds": 1.8, "end_seconds": 4.0, "text": "Welcome to the show.", "timing_quality": "caption"}
+      ]
+    },
+    {
+      "name": "phrases_repeated_at_different_times_preserved",
+      "input": [
+        {"start_seconds": 0.0, "end_seconds": 1.5, "text": "Yes, of course."},
+        {"start_seconds": 10.0, "end_seconds": 11.5, "text": "Yes, of course."}
+      ],
+      "expected": [
+        {"position": 0, "start_seconds": 0.0, "end_seconds": 1.5, "text": "Yes, of course.", "timing_quality": "caption"},
+        {"position": 1, "start_seconds": 10.0, "end_seconds": 11.5, "text": "Yes, of course.", "timing_quality": "caption"}
+      ]
+    },
+    {
+      "name": "unpunctuated_final_buffer_flushed",
+      "input": [
+        {"start_seconds": 0.0, "end_seconds": 2.0, "text": "This is an unpunctuated sentence"},
+        {"start_seconds": 2.2, "end_seconds": 4.0, "text": "that simply ends"}
+      ],
+      "expected": [
+        {"position": 0, "start_seconds": 0.0, "end_seconds": 4.0, "text": "This is an unpunctuated sentence that simply ends", "timing_quality": "caption"}
+      ]
+    }
+  ]
+}

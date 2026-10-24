@@ -1,0 +1,67 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+backend/.venv/
+.venv/
+venv/
+ENV/
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+
+# Node
+frontend/node_modules/
+node_modules/
+frontend/dist/
+dist/
+.npm
+*.tsbuildinfo
+.vite/
+
+# SQLite databases & temp WAL files
+*.db
+*.db-shm
+*.db-wal
+*.db-journal
+
+# Data directories (databases, downloaded AI models, temp recordings)
+data/
+backend/data/
+**/data/
+**/models/
+**/temp/
+
+# Local Media and Audio Recording Caches
+backend/media_cache/
+media_cache/
+*.wav
+*.mp3
+*.m4a
+*.webm
+*.ogg
+
+# Environment and Secrets (CRITICAL: never commit API keys or local settings)
+.env
+.env.*
+!.env.example
+backend/.env
+backend/.env.*
+!backend/.env.example
+frontend/.env
+frontend/.env.*
+!frontend/.env.example
+
+# Logs
+logs/
+*.log
+
+# OS & Editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp

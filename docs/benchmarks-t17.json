@@ -1,0 +1,141 @@
+{
+  "timestamp": "2026-10-23T22:06:50Z",
+  "environment": {
+    "python": {
+      "version": "3.11.9",
+      "compatible": true,
+      "executable": "C:\\Users\\crisa\\Workspace\\system-design\\english-learning\\backend\\.venv\\Scripts\\python.exe"
+    },
+    "ffmpeg": {
+      "available": true,
+      "path": "C:\\Users\\crisa\\AppData\\Local\\Microsoft\\WinGet\\Packages\\Gyan.FFmpeg_Microsoft.Winget.Source_8wekyb3d8bbwe\\ffmpeg-9.0.2-full_build\\bin\\ffmpeg.EXE",
+      "version": "ffmpeg version 9.0.2-full_build-www.gyan.dev Copyright (c) 2000-2026 the FFmpeg developers",
+      "ffprobe_available": true
+    },
+    "speech_runtime": {
+      "ctranslate2_version": "4.8.3",
+      "cuda_device_count": 1,
+      "cpu_compute_types": [
+        "float32",
+        "int16",
+        "int8",
+        "int8_float32"
+      ],
+      "cuda_compute_types": [
+        "bfloat16",
+        "float16",
+        "float32",
+        "int8",
+        "int8_bfloat16",
+        "int8_float16",
+        "int8_float32"
+      ],
+      "int8_float16_supported": true,
+      "int8_cpu_supported": true,
+      "error": null,
+      "registered_dll_dirs": [
+        "C:\\Users\\crisa\\Workspace\\system-design\\english-learning\\backend\\.venv\\Lib\\site-packages\\nvidia\\cublas\\bin",
+        "C:\\Users\\crisa\\Workspace\\system-design\\english-learning\\backend\\.venv\\Lib\\site-packages\\nvidia\\cuda_nvrtc\\bin",
+        "C:\\Users\\crisa\\Workspace\\system-design\\english-learning\\backend\\.venv\\Lib\\site-packages\\nvidia\\cudnn\\bin"
+      ]
+    },
+    "gpu": {
+      "gpu_name": "NVIDIA GeForce RTX 3050 Laptop GPU",
+      "vram_total_mb": 4096,
+      "vram_free_mb": 3964,
+      "driver_version": "566.07"
+    },
+    "models": {
+      "cache_dir": "C:\\Users\\crisa\\Workspace\\system-design\\english-learning\\data\\models",
+      "cached_models": [
+        "Systran/faster-whisper-tiny.en"
+      ]
+    }
+  },
+  "cpu_benchmark": {
+    "device": "cpu",
+    "model_name": "tiny.en",
+    "compute_type": "int8",
+    "cold_load_time_ms": 873.67,
+    "gpu_name": "NVIDIA GeForce RTX 3050 Laptop GPU",
+    "free_vram_mb": 3964,
+    "benchmarks": [
+      {
+        "audio_duration_s": 1.0,
+        "warm_times_ms": [
+          1481.67,
+          1351.7,
+          1292.14
+        ],
+        "avg_warm_time_ms": 1375.17,
+        "p95_warm_time_ms": 1468.67,
+        "real_time_factor_rtf": 1.3752
+      },
+      {
+        "audio_duration_s": 5.0,
+        "warm_times_ms": [
+          4135.43,
+          4554.41,
+          4287.67
+        ],
+        "avg_warm_time_ms": 4325.83,
+        "p95_warm_time_ms": 4527.74,
+        "real_time_factor_rtf": 0.8652
+      },
+      {
+        "audio_duration_s": 10.0,
+        "warm_times_ms": [
+          4855.85,
+          4775.14,
+          3826.29
+        ],
+        "avg_warm_time_ms": 4485.76,
+        "p95_warm_time_ms": 4847.78,
+        "real_time_factor_rtf": 0.4486
+      }
+    ]
+  },
+  "gpu_benchmark": {
+    "device": "cuda",
+    "model_name": "tiny.en",
+    "compute_type": "int8_float16",
+    "cold_load_time_ms": 498.31,
+    "gpu_name": "NVIDIA GeForce RTX 3050 Laptop GPU",
+    "free_vram_mb": 3784,
+    "benchmarks": [
+      {
+        "audio_duration_s": 1.0,
+        "warm_times_ms": [
+          135.7,
+          114.85,
+          110.3
+        ],
+        "avg_warm_time_ms": 120.28,
+        "p95_warm_time_ms": 133.61,
+        "real_time_factor_rtf": 0.1203
+      },
+      {
+        "audio_duration_s": 5.0,
+        "warm_times_ms": [
+          1893.01,
+          2303.63,
+          2170.84
+        ],
+        "avg_warm_time_ms": 2122.49,
+        "p95_warm_time_ms": 2290.35,
+        "real_time_factor_rtf": 0.4245
+      },
+      {
+        "audio_duration_s": 10.0,
+        "warm_times_ms": [
+          2345.77,
+          1761.42,
+          2343.23
+        ],
+        "avg_warm_time_ms": 2150.14,
+        "p95_warm_time_ms": 2345.52,
+        "real_time_factor_rtf": 0.215
+      }
+    ]
+  }
+}
