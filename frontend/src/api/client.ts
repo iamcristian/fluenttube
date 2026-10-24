@@ -171,6 +171,10 @@ export const apiClient = {
       method: 'POST',
       body: JSON.stringify({ segment_id: segmentId, language }),
     }),
+  getDictionaryEntry: (word: string): Promise<import('./types').DictionaryEntryDTO> =>
+    request<import('./types').DictionaryEntryDTO>(`/british/dictionary?word=${encodeURIComponent(word)}`),
+  getBritishAudioUrl: (text: string): string =>
+    `/api/british/audio?text=${encodeURIComponent(text)}`,
 };
 
 

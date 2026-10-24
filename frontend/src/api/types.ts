@@ -262,5 +262,13 @@ export interface TutorExplainRequestDTO {
   language?: string;
 }
 
-
-
+export interface DictionaryEntryDTO {
+  word: string;
+  phonetic_uk: string | null;
+  part_of_speech: string | null;
+  definition_en: string | null;
+  definition_es: string | null;
+  example_en: string | null;
+  audio_url: string;
+  cached: boolean;
+}

@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
   ArrowLeft,
@@ -19,8 +19,10 @@ import { VideoPlayer, VideoPlayerRef } from '../components/VideoPlayer';
 import { DictationBox } from '../components/DictationBox';
 import { ShadowingStudio } from '../components/ShadowingStudio';
 import { GrammarTutorDrawer } from '../components/GrammarTutorDrawer';
+import { BritishInspector } from '../components/BritishInspector';
 import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts';
 import { PlayerAdapter } from '../player/types';
+import { TutorExplanationDTO } from '../api/types';
 
 export interface StudyPageProps {
   videoId: number;
@@ -51,6 +53,10 @@ export const StudyPage: React.FC<StudyPageProps> = ({
     setActiveStep,
   } = useStudyStore();
 
+  const [selectedWord, setSelectedWord] = useState<string | null>(null);
+  const [tutorExplanation, setTutorExplanation] = useState<TutorExplanationDTO | null>(null);
+  const [isLoadingTutor, setIsLoadingTutor] = useState<boolean>(false);
+
   const playerRef = useRef<VideoPlayerRef>(null);
   const tutorTriggerRef = useRef<HTMLButtonElement>(null);
 
@@ -72,11 +78,29 @@ export const StudyPage: React.FC<StudyPageProps> = ({
   const isLastSegment = activePosition >= totalSegments - 1;
   const isFirstSegment = activePosition <= 0;
 
+  // Reset selected word when switching segments
+  useEffect(() => {
+    setSelectedWord(null);
+  }, [activeSegmentId]);
+
+  // Request tutor explanation for current segment
+  const handleRequestTutor = useCallback(async () => {
+    if (!activeSegment) return;
+    setIsLoadingTutor(true);
+    try {
+      const res = await apiClient.explainSegment(activeSegment.id, 'es');
+      setTutorExplanation(res);
+    } catch (err) {
+      console.error('Failed to get tutor explanation:', err);
+    } finally {
+      setIsLoadingTutor(false);
+    }
+  }, [activeSegment]);
+
   // Handle switching segment
   const handleSelectSegment = (segmentId: number) => {
     const res = selectSegment(segmentId);
     if (res.success && video) {
-      // Persist last_segment_id to server
       apiClient.updateVideoProgress(video.id, segmentId).catch((err) => {
         console.warn('Failed to update progress on server:', err);
       });
@@ -99,7 +123,7 @@ export const StudyPage: React.FC<StudyPageProps> = ({
     }
   };
 
-  // Keyboard shortcuts map (Section 8.4)
+  // Keyboard shortcuts map
   useKeyboardShortcuts({
     onReplay: () => playerRef.current?.replay(),
     onPrevSegment: handlePrevSegment,
@@ -161,8 +185,8 @@ export const StudyPage: React.FC<StudyPageProps> = ({
 
       {/* Top Header */}
       <header className="border-b border-border bg-surface sticky top-0 z-30 w-full">
-        <div className="max-w-[1440px] mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-3">
-          {/* Left: Navigation and Truncated Title with Tooltip */}
+        <div className="max-w-[1600px] mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-3">
+          {/* Left: Navigation and Truncated Title */}
           <div className="flex items-center space-x-3 min-w-0">
             <button
               type="button"
@@ -184,10 +208,9 @@ export const StudyPage: React.FC<StudyPageProps> = ({
             </h1>
           </div>
 
-          {/* Right: Progress bar and action triggers with tooltips */}
+          {/* Right: Progress bar */}
           {video && (
             <div className="flex items-center space-x-2 sm:space-x-4 shrink-0">
-              {/* Overall Progress */}
               <div className="hidden sm:flex flex-col items-end space-y-1">
                 <div className="flex items-center space-x-2 text-[11px] font-mono text-text-secondary">
                   <span>
@@ -207,8 +230,8 @@ export const StudyPage: React.FC<StudyPageProps> = ({
         </div>
       </header>
 
-      {/* Main Workspace Body */}
-      <main className="flex-1 max-w-[1440px] w-full mx-auto p-4 sm:p-6">
+      {/* Main Workspace Body: Unified 3-Column Layout */}
+      <main className="flex-1 max-w-[1600px] w-full mx-auto p-4 sm:p-6">
         {isLoading && (
           <div className="flex flex-col items-center justify-center py-24 space-y-3">
             <div className="w-8 h-8 border-3 border-accent/20 border-t-accent rounded-full animate-spin" />
@@ -234,13 +257,13 @@ export const StudyPage: React.FC<StudyPageProps> = ({
         )}
 
         {video && (
-          <div className="w-full flex flex-col lg:flex-row gap-6">
-            {/* LEFT COLUMN: 44% on >=1024px (Player & Sentence List) */}
+          <div className="w-full grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+            {/* COLUMN 1: LEFT (Video Player & Anti-Spoiler Transcript) */}
             <section
               aria-label="Video Player and Segment Navigation"
-              className="w-full lg:w-[44%] flex flex-col space-y-4"
+              className="lg:col-span-5 xl:col-span-4 flex flex-col space-y-4"
             >
-              {/* 16:9 YouTube Video Player with Controls */}
+              {/* YouTube Video Player */}
               <VideoPlayer
                 ref={playerRef}
                 videoId={video.youtube_id}
@@ -251,7 +274,7 @@ export const StudyPage: React.FC<StudyPageProps> = ({
                 customAdapter={customPlayerAdapter}
               />
 
-              {/* Segment List Panel: Collapsible on <1024px, Always visible on >=1024px */}
+              {/* Segment List Panel: Anti-Spoiler Transcript with Masked Dots */}
               <div className="bg-surface rounded-panel border border-border p-4 shadow-lg flex flex-col space-y-3">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-2">
@@ -261,7 +284,6 @@ export const StudyPage: React.FC<StudyPageProps> = ({
                     </h2>
                   </div>
 
-                  {/* Toggle button for mobile/tablet (<1024px) */}
                   <button
                     type="button"
                     onClick={toggleSidebar}
@@ -278,7 +300,6 @@ export const StudyPage: React.FC<StudyPageProps> = ({
                   </button>
                 </div>
 
-                {/* List container: On >=1024px always shown; On <1024px shown when isSidebarOpen is true */}
                 <div className={`${isSidebarOpen ? 'block' : 'hidden lg:block'}`}>
                   <SegmentList
                     segments={video.segments}
@@ -289,14 +310,13 @@ export const StudyPage: React.FC<StudyPageProps> = ({
               </div>
             </section>
 
-            {/* RIGHT COLUMN: 56% on >=1024px (Active Dictation & Shadowing Studio) */}
+            {/* COLUMN 2: CENTER (Active Dictation & Unified Shadowing Studio) */}
             <section
               aria-label="Dictation and Shadowing Workspace"
-              className="w-full lg:w-[56%] flex flex-col space-y-4"
+              className="lg:col-span-7 xl:col-span-5 flex flex-col space-y-4"
             >
-              {/* Stepper & Sentence Navigation Card */}
+              {/* Stepper & Navigation Card */}
               <div className="bg-surface rounded-panel border border-border p-4 shadow-lg space-y-3">
-                {/* Stepper Tabs and Progress Navigation */}
                 <div className="flex items-center justify-between border-b border-border/80 pb-3 flex-wrap gap-3">
                   <div className="flex items-center space-x-2">
                     {(['listen', 'dictate', 'shadow'] as StudyStep[]).map((step) => {
@@ -318,7 +338,7 @@ export const StudyPage: React.FC<StudyPageProps> = ({
                     })}
                   </div>
 
-                  {/* Sentence Position Indicator with Previous/Next Controls */}
+                  {/* Sentence Indicator */}
                   <div className="flex items-center space-x-2 text-xs text-text-secondary">
                     <span className="font-mono text-white font-semibold">
                       Sentence {activePosition + 1} of {totalSegments}
@@ -348,7 +368,7 @@ export const StudyPage: React.FC<StudyPageProps> = ({
                   </div>
                 </div>
 
-                {/* Active Sentence Info / Target Status */}
+                {/* Sentence Info / Status */}
                 <div className="flex items-center justify-between text-xs text-text-secondary bg-surface-raised/70 p-3 rounded-control border border-border/60 flex-wrap gap-2">
                   <div className="flex items-center space-x-3">
                     <span className="font-mono text-slate-400">
@@ -373,12 +393,15 @@ export const StudyPage: React.FC<StudyPageProps> = ({
                     </span>
                   </div>
 
-                  {/* Explain this sentence (T21 Grammar Tutor trigger) */}
+                  {/* Explain sentence button */}
                   <button
                     ref={tutorTriggerRef}
                     type="button"
                     disabled={!isSegmentUnlocked}
-                    onClick={() => setIsTutorOpen(true)}
+                    onClick={() => {
+                      setIsTutorOpen(true);
+                      handleRequestTutor();
+                    }}
                     aria-label="Explain sentence with AI tutor"
                     title={
                       isSegmentUnlocked
@@ -397,12 +420,15 @@ export const StudyPage: React.FC<StudyPageProps> = ({
                 </div>
               </div>
 
-              {/* Dictation Box */}
+              {/* Dictation Box (Reactive word-by-word with double-tab) */}
               {activeSegment ? (
                 <DictationBox
                   segment={activeSegment}
                   onNext={handleNextSegment}
                   isLastSegment={isLastSegment}
+                  onSelectWord={(word) => setSelectedWord(word)}
+                  onToggleShadowing={() => setActiveStep(activeStep === 'shadow' ? 'dictate' : 'shadow')}
+                  isShadowingRecording={isRecording}
                 />
               ) : (
                 <div className="bg-surface rounded-panel border border-border p-8 text-center text-text-secondary">
@@ -410,18 +436,33 @@ export const StudyPage: React.FC<StudyPageProps> = ({
                 </div>
               )}
 
-              {/* Shadowing Studio Docked Panel (T14) */}
+              {/* Shadowing Studio Docked Panel */}
               <ShadowingStudio
                 segment={activeSegment}
                 onListenOriginal={() => playerRef.current?.replay()}
                 onBeforeRecord={() => playerRef.current?.pause()}
               />
             </section>
+
+            {/* COLUMN 3: RIGHT (Fixed British Study Inspector) */}
+            <section
+              aria-label="British Study Inspector"
+              className="lg:col-span-12 xl:col-span-3 bg-surface rounded-panel border border-border shadow-lg overflow-hidden flex flex-col min-h-[500px]"
+            >
+              <BritishInspector
+                selectedWord={selectedWord}
+                onClearSelectedWord={() => setSelectedWord(null)}
+                segment={activeSegment}
+                tutorExplanation={tutorExplanation}
+                isLoadingTutor={isLoadingTutor}
+                onRequestTutor={handleRequestTutor}
+              />
+            </section>
           </div>
         )}
       </main>
 
-      {/* Grammar Tutor Slide-out Drawer (T21) */}
+      {/* Grammar Tutor Slide-out Drawer */}
       <GrammarTutorDrawer
         isOpen={isTutorOpen}
         onClose={() => setIsTutorOpen(false)}
@@ -431,4 +472,3 @@ export const StudyPage: React.FC<StudyPageProps> = ({
     </div>
   );
 };
-

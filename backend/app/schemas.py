@@ -247,3 +247,13 @@ class TutorExplainRequestDTO(BaseModel):
     segment_id: int
     language: str = Field(default="es", max_length=10)
 
+class DictionaryEntryDTO(BaseModel):
+    word: str
+    phonetic_uk: Optional[str] = None
+    part_of_speech: Optional[str] = None
+    definition_en: Optional[str] = None
+    definition_es: Optional[str] = None
+    example_en: Optional[str] = None
+    audio_url: str
+    cached: bool = False
+

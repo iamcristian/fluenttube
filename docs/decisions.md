@@ -715,6 +715,31 @@ This document records architectural, technical, and environment decisions in acc
     - If a model encounters temporary deprecation (404) or high-demand unavailability (503/504), the client automatically tries fallback models without failing the user request.
 - **Rationale**: Guarantees high availability and zero downtime for users regardless of Google model rollout schedules and demand spikes.
 
+---
+
+### D-035: Reactive Live Dictation, Double-Tab Hint System, and Zero-Token British English Audio & Dictionary Stack
+- **Date**: 2026-10-23
+- **Status**: Accepted
+- **Affected Sections**: Dictation flow, Audio/TTS, Dictionary lookups, `frontend/src/components/DictationBox.tsx`, `frontend/src/pages/StudyPage.tsx`, `frontend/src/components/BritishInspector.tsx`, `backend/app/routers/british.py`, `backend/app/services/british_service.py`, `backend/app/models.py`
+- **Decision**:
+  - **Live Reactive Dictation & Auto-Advance**:
+    - Real-time client-side prefix matching using canonical token normalizer without requiring manual "Check" button clicks.
+    - Live emerald highlights for matched tokens directly above the input box as the learner types.
+    - Double-Tab shortcut (`Tab + Tab` within 500 ms) automatically inserts and reveals the exact next missing word without losing focus on the input box.
+    - Automatic segment completion and auto-advance when 100% exact match is achieved.
+    - Integrated shadowing mic shortcut button `[🎤]` directly in the Dictation header for seamless dictation-to-shadowing transition.
+  - **Zero-Token, Zero-VRAM British Stack**:
+    - High-fidelity British neural speech using `edge-tts` with `en-GB-RyanNeural`, requiring 0 GPU VRAM and 0 token cost.
+    - Audio cached on disk under `media_cache/tts_uk/` and streamed through `GET /api/british/audio?text={text}`.
+    - Multi-tier dictionary lookup: Local SQLite `DictionaryCache` table first (0 ms), Free Dictionary API secondary fallback, and Datamuse API (`api.datamuse.com`) tertiary fallback.
+    - Captures British IPA phonetics (`phonetic_uk`), definitions, parts of speech, and usage examples.
+  - **Unified 3-Column Responsive Workspace (`StudyPage.tsx`)**:
+    - Left column (`lg:col-span-5 xl:col-span-4`): YouTube player with video bounds clamping + Anti-spoiler transcript with masked dots.
+    - Center column (`lg:col-span-7 xl:col-span-5`): Live reactive dictation box with keyboard hints and docked Shadowing Studio.
+    - Right column (`lg:col-span-12 xl:col-span-3`): Fixed British Study Inspector with instant click-to-lookup dictionary, British pronunciation audio player, and B2 Connected Speech Tutor tab.
+- **Rationale**: Eliminates dictation interaction friction (matching the fluidity of FluentDictation) while maintaining 100% free, zero-VRAM, zero-token local operation for vocabulary and audio lookups.
+
+
 
 
 

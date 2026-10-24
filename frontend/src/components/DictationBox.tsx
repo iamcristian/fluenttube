@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import {
   Check,
   Eye,
@@ -9,6 +9,8 @@ import {
   Keyboard,
   X,
   Trash2,
+  Mic,
+  MicOff,
 } from 'lucide-react';
 import { SegmentDTO } from '../api/types';
 import { apiClient } from '../api/client';
@@ -20,12 +22,18 @@ export interface DictationBoxProps {
   segment: SegmentDTO;
   onNext?: () => void;
   isLastSegment?: boolean;
+  onSelectWord?: (word: string) => void;
+  onToggleShadowing?: () => void;
+  isShadowingRecording?: boolean;
 }
 
 export const DictationBox: React.FC<DictationBoxProps> = ({
   segment,
   onNext,
   isLastSegment = false,
+  onSelectWord,
+  onToggleShadowing,
+  isShadowingRecording = false,
 }) => {
   const {
     drafts,
@@ -46,15 +54,21 @@ export const DictationBox: React.FC<DictationBoxProps> = ({
   const [showHelpModal, setShowHelpModal] = useState(false);
   const [hintMessage, setHintMessage] = useState<string | null>(null);
 
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const lastTabTimeRef = useRef<number>(0);
+  const sessionInitiatedRef = useRef<number | null>(null);
+  const autoSubmittedRef = useRef<boolean>(false);
+
   const draft = drafts[segment.id] ?? '';
   const session = sessions[segment.id] ?? null;
   const result = results[segment.id] ?? null;
   const isStale = staleDiffs[segment.id] ?? false;
 
-  // Initialize or load practice session for this segment
+  // 1. Initialize or load practice session for this segment (Fix Bug F-01: no self-canceling loop)
   useEffect(() => {
     let isMounted = true;
-    if (!session && !isLoadingSession) {
+    if (!session && sessionInitiatedRef.current !== segment.id) {
+      sessionInitiatedRef.current = segment.id;
       setIsLoadingSession(true);
       apiClient
         .createSession(segment.id)
@@ -75,9 +89,14 @@ export const DictationBox: React.FC<DictationBoxProps> = ({
     return () => {
       isMounted = false;
     };
-  }, [segment.id, session, isLoadingSession, setSession]);
+  }, [segment.id, session, setSession]);
 
-  // Extract display tokens from target segment text
+  // Reset auto-submit tracker on segment change
+  useEffect(() => {
+    autoSubmittedRef.current = false;
+  }, [segment.id]);
+
+  // 2. Extract display tokens from target segment text
   const targetNorm = useMemo(() => {
     try {
       return normalizeText(segment.text, false);
@@ -86,8 +105,36 @@ export const DictationBox: React.FC<DictationBoxProps> = ({
     }
   }, [segment.text]);
 
-  // Determine whether each display token is matched in latest non-stale result
-  const matchedDisplayTokens = useMemo(() => {
+  // 3. Extract tokens from user draft for live matching
+  const draftNorm = useMemo(() => {
+    try {
+      return normalizeText(draft, false);
+    } catch {
+      return { display_tokens: [] as DisplayToken[], canonical_tokens: [] };
+    }
+  }, [draft]);
+
+  // 4. Live sequential matching from left to right (FluentDictation reactive highlight)
+  const liveMatchedIndices = useMemo(() => {
+    if (isStale) return new Set<number>();
+    const matched = new Set<number>();
+    const targetTokens = targetNorm.display_tokens;
+    const userTokens = draftNorm.display_tokens;
+
+    for (let i = 0; i < targetTokens.length && i < userTokens.length; i++) {
+      const targetClean = targetTokens[i].text.toLowerCase().replace(/[^\w]/g, '');
+      const userClean = userTokens[i].text.toLowerCase().replace(/[^\w]/g, '');
+      if (targetClean === userClean) {
+        matched.add(targetTokens[i].index);
+      } else {
+        break;
+      }
+    }
+    return matched;
+  }, [targetNorm.display_tokens, draftNorm.display_tokens, isStale]);
+
+  // 5. Server-evaluated matched display tokens from latest non-stale result
+  const serverMatchedDisplayTokens = useMemo(() => {
     if (!result || isStale) return new Set<number>();
     const matched = new Set<number>();
 
@@ -103,11 +150,18 @@ export const DictationBox: React.FC<DictationBoxProps> = ({
     return matched;
   }, [result, isStale, targetNorm.display_tokens]);
 
+  // Combined matched tokens: union of server evaluated and live matched
+  const matchedDisplayTokens = useMemo(() => {
+    const combined = new Set<number>(serverMatchedDisplayTokens);
+    liveMatchedIndices.forEach((idx) => combined.add(idx));
+    return combined;
+  }, [serverMatchedDisplayTokens, liveMatchedIndices]);
+
   const isCompleted = segment.completed || (result?.completed ?? false);
   const isRevealed = segment.revealed || (session?.answer_revealed ?? false);
 
-  // Check action
-  const handleCheck = useCallback(async () => {
+  // 6. Check action
+  const handleCheck = useCallback(async (isAuto = false) => {
     if (!draft.trim() || isChecking) return;
 
     setIsChecking(true);
@@ -134,6 +188,11 @@ export const DictationBox: React.FC<DictationBoxProps> = ({
             shadowing_unlocked: true,
           });
         }
+        if (isAuto && onNext) {
+          setTimeout(() => {
+            onNext();
+          }, 700);
+        }
       }
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Failed to evaluate dictation';
@@ -141,9 +200,21 @@ export const DictationBox: React.FC<DictationBoxProps> = ({
     } finally {
       setIsChecking(false);
     }
-  }, [session, draft, isChecking, segment.id, setSession, setResult, updateSegment]);
+  }, [draft, isChecking, session, segment.id, setSession, setResult, updateSegment, onNext]);
 
-  // Hint action: targets first display token not matched and not hinted
+  // 7. Auto-submit on 100% exact live match
+  useEffect(() => {
+    const allMatched =
+      targetNorm.display_tokens.length > 0 &&
+      liveMatchedIndices.size === targetNorm.display_tokens.length;
+
+    if (allMatched && !autoSubmittedRef.current && !isCompleted && !isRevealed) {
+      autoSubmittedRef.current = true;
+      handleCheck(true);
+    }
+  }, [liveMatchedIndices.size, targetNorm.display_tokens.length, isCompleted, isRevealed, handleCheck]);
+
+  // 8. Hint action: First-letter hint
   const handleHint = useCallback(async () => {
     if (!session || isHinting || isCompleted || isRevealed) return;
 
@@ -183,7 +254,27 @@ export const DictationBox: React.FC<DictationBoxProps> = ({
     setSession,
   ]);
 
-  // Reveal action
+  // Double-Tab hint action: fills in the next missing word
+  const handleDoubleTabHint = useCallback(() => {
+    if (isCompleted || isRevealed) return;
+
+    const nextUnmatched = targetNorm.display_tokens.find(
+      (dt) => !matchedDisplayTokens.has(dt.index)
+    );
+    if (!nextUnmatched) return;
+
+    const current = draft.trim();
+    const newDraft = current ? `${current} ${nextUnmatched.text}` : nextUnmatched.text;
+    setDraft(segment.id, newDraft);
+
+    if (session) {
+      apiClient.getHint(session.id, nextUnmatched.index).catch(() => {});
+    }
+    setHintMessage(`Pista: "${nextUnmatched.text}"`);
+    setTimeout(() => setHintMessage(null), 2000);
+  }, [isCompleted, isRevealed, targetNorm.display_tokens, matchedDisplayTokens, draft, setDraft, segment.id, session]);
+
+  // Reveal answer
   const handleReveal = useCallback(async () => {
     if (!session || isRevealing || isCompleted || isRevealed) return;
 
@@ -207,144 +298,115 @@ export const DictationBox: React.FC<DictationBoxProps> = ({
     }
   }, [session, isRevealing, isCompleted, isRevealed, segment.id, setSession, updateSegment]);
 
-  // Try again action: create fresh session
+  // Try again action
   const handleTryAgain = useCallback(async () => {
     setIsLoadingSession(true);
     setCheckError(null);
     setHintMessage(null);
     setDraft(segment.id, '');
+    autoSubmittedRef.current = false;
 
     try {
       const newSess = await apiClient.createSession(segment.id);
       setSession(segment.id, newSess);
+      textareaRef.current?.focus();
     } catch (err: unknown) {
-      console.error('Failed to reset session:', err);
+      console.error('Failed to create new session:', err);
     } finally {
       setIsLoadingSession(false);
     }
   }, [segment.id, setDraft, setSession]);
 
+  // Keyboard shortcuts integration
+  useKeyboardShortcuts({
+    onCheck: () => handleCheck(false),
+    onHint: handleHint,
+    onReveal: handleReveal,
+    onClear: () => setDraft(segment.id, ''),
+    onToggleHelp: () => setShowHelpModal((prev) => !prev),
+    onClose: () => setShowHelpModal(false),
+  });
+
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    // Check on Enter (without Shift) OR Ctrl+Enter / Cmd+Enter
-    if ((e.key === 'Enter' && !e.shiftKey) || ((e.ctrlKey || e.metaKey) && (e.key === 'Enter' || e.keyCode === 13))) {
+    if (e.key === 'Tab') {
+      const now = Date.now();
+      if (now - lastTabTimeRef.current < 350) {
+        e.preventDefault();
+        handleDoubleTabHint();
+      }
+      lastTabTimeRef.current = now;
+    } else if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
       e.preventDefault();
-      handleCheck();
+      handleCheck(false);
     }
   };
 
-  useKeyboardShortcuts({
-    onHint: handleHint,
-    onClose: showHelpModal ? () => setShowHelpModal(false) : undefined,
-  });
+  const hintedIndicesSet = useMemo(
+    () => new Set(session?.hinted_display_indices ?? []),
+    [session?.hinted_display_indices]
+  );
 
   return (
-    <div className="bg-surface rounded-panel border border-border p-5 shadow-lg space-y-5">
-      {/* Shortcut Help Modal */}
-      {showHelpModal && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="shortcut-help-title"
-          className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4"
-        >
-          <div className="w-full max-w-md bg-surface border border-border rounded-panel p-6 shadow-2xl space-y-4">
-            <div className="flex items-center justify-between border-b border-border pb-3">
-              <div className="flex items-center space-x-2 text-accent">
-                <Keyboard className="w-5 h-5" />
-                <h3 id="shortcut-help-title" className="text-sm font-bold text-white">
-                  Keyboard Shortcuts
-                </h3>
-              </div>
-              <button
-                type="button"
-                onClick={() => setShowHelpModal(false)}
-                className="text-text-secondary hover:text-white transition p-1"
-                aria-label="Close shortcuts modal"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            <div className="space-y-2 text-xs">
-              <div className="flex items-center justify-between py-1.5 border-b border-border/50">
-                <span className="text-text-secondary">Replay current sentence</span>
-                <kbd className="px-2 py-0.5 rounded bg-surface-raised border border-border font-mono text-accent">
-                  Alt+R
-                </kbd>
-              </div>
-              <div className="flex items-center justify-between py-1.5 border-b border-border/50">
-                <span className="text-text-secondary">Check dictation</span>
-                <kbd className="px-2 py-0.5 rounded bg-surface-raised border border-border font-mono text-accent">
-                  Ctrl+Enter
-                </kbd>
-              </div>
-              <div className="flex items-center justify-between py-1.5 border-b border-border/50">
-                <span className="text-text-secondary">Reveal first letter hint</span>
-                <kbd className="px-2 py-0.5 rounded bg-surface-raised border border-border font-mono text-accent">
-                  Alt+H
-                </kbd>
-              </div>
-              <div className="flex items-center justify-between py-1.5 border-b border-border/50">
-                <span className="text-text-secondary">Previous sentence</span>
-                <kbd className="px-2 py-0.5 rounded bg-surface-raised border border-border font-mono text-accent">
-                  Alt+Left
-                </kbd>
-              </div>
-              <div className="flex items-center justify-between py-1.5 border-b border-border/50">
-                <span className="text-text-secondary">Next sentence</span>
-                <kbd className="px-2 py-0.5 rounded bg-surface-raised border border-border font-mono text-accent">
-                  Alt+Right
-                </kbd>
-              </div>
-              <div className="flex items-center justify-between py-1.5">
-                <span className="text-text-secondary">Close modal / dialog</span>
-                <kbd className="px-2 py-0.5 rounded bg-surface-raised border border-border font-mono text-accent">
-                  Esc
-                </kbd>
-              </div>
-            </div>
-
-            <div className="pt-2 flex justify-end">
-              <button
-                type="button"
-                onClick={() => setShowHelpModal(false)}
-                className="px-4 py-1.5 rounded-control text-xs font-semibold bg-accent text-background hover:bg-accent-hover transition"
-              >
-                Got it
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Header bar: Word Slots & Shortcuts trigger */}
-      <div className="flex items-center justify-between border-b border-border/70 pb-3">
+    <div className="bg-surface rounded-panel border border-border p-5 shadow-lg space-y-4">
+      {/* Header and Integrated Mic Controls */}
+      <div className="flex items-center justify-between border-b border-border/80 pb-3">
         <div className="flex items-center space-x-2">
-          <span className="text-xs font-bold uppercase tracking-wider text-text-primary">
-            Sentence Word Slots
-          </span>
-          <span className="text-[11px] font-mono text-text-secondary">
-            ({targetNorm.display_tokens.length} words)
-          </span>
+          <h2 className="text-xs font-bold uppercase tracking-wider text-text-primary">
+            Dictation Practice
+          </h2>
+          {isCompleted && (
+            <span className="text-[11px] font-semibold text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 px-2 py-0.5 rounded-full flex items-center gap-1">
+              ✓ Completed
+            </span>
+          )}
+          {isRevealed && !isCompleted && (
+            <span className="text-[11px] font-semibold text-amber-400 bg-amber-500/10 border border-amber-500/30 px-2 py-0.5 rounded-full">
+              Answer Revealed
+            </span>
+          )}
         </div>
 
-        <button
-          type="button"
-          onClick={() => setShowHelpModal(true)}
-          title="View keyboard shortcuts"
-          aria-label="View keyboard shortcuts"
-          className="flex items-center space-x-1 text-xs text-text-secondary hover:text-accent transition p-1"
-        >
-          <Keyboard className="w-4 h-4" />
-          <span className="hidden sm:inline text-[11px]">Shortcuts</span>
-        </button>
+        <div className="flex items-center space-x-2">
+          {hintMessage && (
+            <span className="text-[11px] font-mono text-amber-300 bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 rounded animate-pulse">
+              {hintMessage}
+            </span>
+          )}
+
+          {onToggleShadowing && (
+            <button
+              type="button"
+              onClick={onToggleShadowing}
+              title={isShadowingRecording ? 'Stop recording (Space)' : 'Shadow with microphone (Space)'}
+              aria-label={isShadowingRecording ? 'Stop recording' : 'Record voice for shadowing'}
+              className={`p-1.5 rounded-full transition-all ${
+                isShadowingRecording
+                  ? 'bg-rose-500 text-white animate-pulse shadow-md shadow-rose-500/30'
+                  : 'bg-surface-raised hover:bg-accent/20 text-text-secondary hover:text-white border border-border'
+              }`}
+            >
+              {isShadowingRecording ? <MicOff className="w-3.5 h-3.5 text-white" /> : <Mic className="w-3.5 h-3.5 text-accent" />}
+            </button>
+          )}
+
+          <button
+            type="button"
+            onClick={() => setShowHelpModal(true)}
+            title="View keyboard shortcuts"
+            aria-label="View keyboard shortcuts"
+            className="flex items-center space-x-1 text-xs text-text-secondary hover:text-accent transition p-1"
+          >
+            <Keyboard className="w-4 h-4" />
+            <span className="hidden sm:inline text-[11px]">Shortcuts</span>
+          </button>
+        </div>
       </div>
 
       {/* Word Slots Container (Section 7.3) */}
       <div
         role="region"
         aria-label="Target sentence word placeholders"
-        className="flex flex-wrap gap-2 p-3.5 bg-background/80 rounded-control border border-border/60 min-h-[52px] items-center"
+        className="flex flex-wrap gap-2 p-3.5 bg-background/80 rounded-control border border-border/60 min-h-[52px] items-center select-none"
       >
         {targetNorm.display_tokens.map((token) => {
           // If sentence is revealed or completed: display actual word
@@ -352,7 +414,9 @@ export const DictationBox: React.FC<DictationBoxProps> = ({
             return (
               <span
                 key={token.index}
-                className={`px-2.5 py-1 rounded text-xs font-mono font-semibold transition ${
+                onClick={() => onSelectWord?.(token.text)}
+                title="Click to inspect British pronunciation and definition"
+                className={`px-2.5 py-1 rounded text-xs font-mono font-semibold transition cursor-pointer hover:bg-surface-raised ${
                   isCompleted
                     ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
                     : 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
@@ -363,187 +427,77 @@ export const DictationBox: React.FC<DictationBoxProps> = ({
             );
           }
 
-          // In progress: check if token matched in latest non-stale check
-          const isMatched = matchedDisplayTokens.has(token.index);
-          if (isMatched) {
+          // If word matched: display in green
+          if (matchedDisplayTokens.has(token.index)) {
             return (
               <span
                 key={token.index}
-                className="px-2.5 py-1 rounded text-xs font-mono font-semibold bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 transition"
+                onClick={() => onSelectWord?.(token.text)}
+                title="Matched! Click to inspect British pronunciation"
+                className="px-2.5 py-1 rounded text-xs font-mono font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 cursor-pointer hover:bg-emerald-500/30 transition shadow-xs"
               >
                 {token.text}
               </span>
             );
           }
 
-          // Check if token has received a hint
-          const isHinted = session?.hinted_display_indices.includes(token.index);
-          if (isHinted) {
-            const dashesCount = Math.max(1, Math.min(8, token.text.length) - 1);
+          // If hinted: display first letter + dashes capped at 8
+          if (hintedIndicesSet.has(token.index)) {
+            const cleanText = token.text.replace(/[^\w]/g, '');
+            const firstChar = cleanText.length > 0 ? cleanText[0] : token.text[0];
+            const dashCount = Math.min(8, Math.max(2, token.text.length));
+            const remainderDashes = '-'.repeat(Math.max(1, dashCount - 1));
+
             return (
               <span
                 key={token.index}
-                className="px-2.5 py-1 rounded text-xs font-mono font-bold bg-amber-500/15 text-amber-300 border border-amber-500/40 tracking-wider transition"
-                title={`Hint: starts with '${token.text[0]}'`}
-                aria-label={`Word hint: starts with ${token.text[0]}`}
+                aria-label={`Word hint: starts with ${firstChar}`}
+                className="px-2.5 py-1 rounded text-xs font-mono font-semibold bg-amber-500/20 text-amber-300 border border-amber-500/40 tracking-wider"
               >
-                {token.text[0]}
-                {'-'.repeat(dashesCount)}
+                {firstChar}{remainderDashes}
               </span>
             );
           }
 
-          // Default placeholder: dashes matching approximate written length capped at 8
-          const dashLen = Math.min(8, Math.max(2, token.text.length));
+          // Concealed word: dashes capped strictly at 8 characters
+          const dashCount = Math.min(8, Math.max(2, token.text.length));
+          const placeholderDashes = '-'.repeat(dashCount);
+
           return (
             <span
               key={token.index}
-              className="px-2 py-1 rounded text-xs font-mono text-slate-500 bg-surface-raised/60 border border-border/40 tracking-widest select-none"
-              aria-label={`Hidden word, length ${token.text.length}`}
+              className="px-2.5 py-1 rounded text-xs font-mono text-slate-500 tracking-wider bg-surface/50 border border-border/40 select-none"
             >
-              {'-'.repeat(dashLen)}
+              {placeholderDashes}
             </span>
           );
         })}
       </div>
 
-      {/* Hint notice message if any */}
-      {hintMessage && (
-        <div
-          role="status"
-          className="text-xs text-amber-300 bg-amber-500/10 border border-amber-500/30 px-3 py-2 rounded-control flex items-center space-x-2"
-        >
-          <Lightbulb className="w-4 h-4 shrink-0 text-amber-400" />
-          <span>{hintMessage}</span>
-        </div>
-      )}
-
-      {/* Error Banner */}
-      {checkError && (
-        <div
-          role="alert"
-          className="text-xs text-danger bg-danger/10 border border-danger/30 px-3 py-2.5 rounded-control flex items-center justify-between"
-        >
-          <div className="flex items-center space-x-2">
-            <AlertCircle className="w-4 h-4 shrink-0" />
-            <span>{checkError}</span>
-          </div>
-          <button
-            type="button"
-            onClick={handleCheck}
-            className="text-[11px] underline font-semibold hover:text-white"
-          >
-            Retry
-          </button>
-        </div>
-      )}
-
-      {/* Feedback Banner on Completed / Evaluated */}
+      {/* Evaluation Feedback Panel */}
       {result && !isStale && (
-        <div
-          role="region"
-          aria-label="Dictation evaluation feedback"
-          className={`p-3.5 rounded-control border text-xs space-y-2 transition ${
-            result.is_exact
-              ? isRevealed
-                ? 'bg-amber-500/10 border-amber-500/30 text-amber-200'
-                : 'bg-emerald-500/10 border-emerald-500/30 text-emerald-200'
-              : 'bg-surface-raised border-border text-text-secondary'
-          }`}
-        >
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-2">
-              <span className="font-bold text-sm">
-                {result.is_exact
-                  ? isRevealed
-                    ? 'Answer reviewed'
-                    : 'Dictation completed!'
-                  : 'Needs practice'}
-              </span>
-              {result.assisted && (
-                <span className="px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 text-[10px] uppercase font-bold tracking-wider">
-                  Assisted
-                </span>
-              )}
-            </div>
-
-            <div className="flex items-center space-x-3 font-mono font-semibold">
-              <span>Score: {result.score}%</span>
-              <span className="text-slate-400">Distance: {result.distance}</span>
-            </div>
+        <div className="p-3.5 rounded-control bg-surface-raised border border-border text-xs space-y-2 animate-in fade-in duration-150">
+          <div className="flex items-center justify-between font-semibold">
+            <span className={result.is_exact ? 'text-emerald-400' : 'text-amber-400'}>
+              {result.is_exact ? 'Dictation completed!' : 'Needs practice'}
+            </span>
+            <span className="font-mono text-slate-300">Score: {result.score}%</span>
           </div>
 
           {!result.is_exact && (
-            <div className="space-y-2">
-              <div className="flex items-center space-x-4 text-[11px] text-slate-300 pt-1">
+            <div className="flex items-center space-x-4 text-[11px] text-text-secondary">
+              <span>Distance: {result.distance}</span>
+              {result.alignment && (
                 <span>
                   Substitutions: {result.alignment.filter((a) => a.op === 'substitution').length}
                 </span>
-                <span>
-                  Omissions: {result.alignment.filter((a) => a.op === 'omission').length}
-                </span>
-                <span>
-                  Insertions: {result.alignment.filter((a) => a.op === 'insertion').length}
-                </span>
-              </div>
-
-              {/* Visual Word-by-Word Alignment Breakdown */}
-              <div className="flex flex-wrap items-center gap-1.5 pt-2 border-t border-border/40">
-                {result.alignment.map((item, idx) => {
-                  if (item.op === 'match') {
-                    return (
-                      <span
-                        key={idx}
-                        className="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-mono text-[11px] border border-emerald-500/40 font-semibold"
-                        title="Correct match"
-                      >
-                        ✓ {item.target || item.input}
-                      </span>
-                    );
-                  }
-                  if (item.op === 'substitution') {
-                    return (
-                      <span
-                        key={idx}
-                        className="px-2 py-0.5 rounded bg-rose-500/20 text-rose-300 font-mono text-[11px] border border-rose-500/40 inline-flex items-center"
-                        title={`Typed "${item.input}", expected "${item.target}"`}
-                      >
-                        <span className="line-through opacity-75">{item.input}</span>
-                        <span className="text-emerald-400 font-bold ml-1">→ {item.target}</span>
-                      </span>
-                    );
-                  }
-                  if (item.op === 'omission') {
-                    return (
-                      <span
-                        key={idx}
-                        className="px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 font-mono text-[11px] border border-amber-500/40"
-                        title={`Missing word: "${item.target}"`}
-                      >
-                        + missing: {item.target}
-                      </span>
-                    );
-                  }
-                  if (item.op === 'insertion') {
-                    return (
-                      <span
-                        key={idx}
-                        className="px-2 py-0.5 rounded bg-rose-500/20 text-rose-300 font-mono text-[11px] border border-rose-500/40"
-                        title={`Extra word: "${item.input}"`}
-                      >
-                        <span className="line-through">{item.input}</span> (extra)
-                      </span>
-                    );
-                  }
-                  return null;
-                })}
-              </div>
+              )}
             </div>
           )}
         </div>
       )}
 
-      {/* Single Accessible Textarea (Section 7.3) */}
+      {/* Single Accessible Textarea */}
       <div className="space-y-1.5">
         <div className="flex items-center justify-between text-xs text-text-secondary">
           <label htmlFor="dictation-input" className="font-semibold text-white">
@@ -556,23 +510,24 @@ export const DictationBox: React.FC<DictationBoxProps> = ({
 
         <textarea
           id="dictation-input"
+          aria-label="Type what you hear"
           value={draft}
           onChange={(e) => setDraft(segment.id, e.target.value)}
           onKeyDown={handleKeyDown}
           disabled={isChecking}
-          placeholder="Listen to the audio and transcribe the sentence here (Ctrl+Enter to check)..."
+          placeholder="Listen to the audio and transcribe the sentence here (Ctrl+Enter to check, Tab+Tab for hint)..."
           rows={3}
           className="w-full bg-background border border-border focus:border-accent rounded-control p-3.5 text-sm text-text-primary placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-accent/20 transition resize-y font-sans leading-relaxed disabled:opacity-50"
         />
       </div>
 
-      {/* Dictation Action Buttons with Tooltip Reasons (Section 7.3, 8.2) */}
+      {/* Dictation Action Buttons with Tooltip Reasons */}
       <div className="flex items-center justify-between gap-3 flex-wrap pt-1">
         <div className="flex items-center space-x-2.5 flex-wrap gap-y-2">
           {/* Check Button */}
           <button
             type="button"
-            onClick={handleCheck}
+            onClick={() => handleCheck(false)}
             disabled={!draft.trim() || isChecking}
             title={
               !draft.trim()
@@ -648,7 +603,7 @@ export const DictationBox: React.FC<DictationBoxProps> = ({
           </button>
         </div>
 
-        {/* Next Sentence Button (Shown on completion or reveal, Section 7.3) */}
+        {/* Next Sentence Button */}
         {(isCompleted || isRevealed) && !isLastSegment && (
           <button
             type="button"
@@ -662,6 +617,81 @@ export const DictationBox: React.FC<DictationBoxProps> = ({
           </button>
         )}
       </div>
+
+      {checkError && (
+        <div className="p-3 bg-danger/10 border border-danger/30 rounded-control text-xs text-danger flex items-center space-x-2">
+          <AlertCircle className="w-4 h-4 shrink-0" />
+          <span>{checkError}</span>
+        </div>
+      )}
+
+      {/* Keyboard Shortcuts Help Modal */}
+      {showHelpModal && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="shortcut-help-title"
+          className="fixed inset-0 z-50 bg-black/70 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-200"
+        >
+          <div className="bg-surface border border-border rounded-panel p-6 max-w-sm w-full shadow-2xl space-y-4">
+            <div className="flex items-center justify-between border-b border-border/80 pb-3 text-white">
+              <div className="flex items-center space-x-2">
+                <Keyboard className="w-5 h-5" />
+                <h3 id="shortcut-help-title" className="text-sm font-bold text-white">
+                  Keyboard Shortcuts
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowHelpModal(false)}
+                className="text-text-secondary hover:text-white transition p-1"
+                aria-label="Close shortcuts modal"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="space-y-2 text-xs">
+              <div className="flex items-center justify-between py-1.5 border-b border-border/50">
+                <span className="text-text-secondary">Pista siguiente palabra</span>
+                <kbd className="px-2 py-0.5 rounded bg-surface-raised border border-border font-mono text-accent">
+                  Tab + Tab
+                </kbd>
+              </div>
+              <div className="flex items-center justify-between py-1.5 border-b border-border/50">
+                <span className="text-text-secondary">Replay current sentence</span>
+                <kbd className="px-2 py-0.5 rounded bg-surface-raised border border-border font-mono text-accent">
+                  Alt+R
+                </kbd>
+              </div>
+              <div className="flex items-center justify-between py-1.5 border-b border-border/50">
+                <span className="text-text-secondary">Check dictation</span>
+                <kbd className="px-2 py-0.5 rounded bg-surface-raised border border-border font-mono text-accent">
+                  Ctrl+Enter
+                </kbd>
+              </div>
+              <div className="flex items-center justify-between py-1.5 border-b border-border/50">
+                <span className="text-text-secondary">Reveal first-letter hint</span>
+                <kbd className="px-2 py-0.5 rounded bg-surface-raised border border-border font-mono text-accent">
+                  Alt+H
+                </kbd>
+              </div>
+              <div className="flex items-center justify-between py-1.5 border-b border-border/50">
+                <span className="text-text-secondary">Reveal full answer</span>
+                <kbd className="px-2 py-0.5 rounded bg-surface-raised border border-border font-mono text-accent">
+                  Alt+A
+                </kbd>
+              </div>
+              <div className="flex items-center justify-between py-1.5">
+                <span className="text-text-secondary">Previous / Next sentence</span>
+                <kbd className="px-2 py-0.5 rounded bg-surface-raised border border-border font-mono text-accent">
+                  Alt+Left / Right
+                </kbd>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

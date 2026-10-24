@@ -20,6 +20,7 @@ from backend.app.routers.videos import router as videos_router
 from backend.app.routers.dictation import router as dictation_router
 from backend.app.routers.shadowing import router as shadowing_router
 from backend.app.routers.tutor import router as tutor_router
+from backend.app.routers.british import router as british_router
 from backend.app.services.jobs import job_runner
 from backend.app.services.youtube_service import handle_ingest_job
 from backend.app.services.shadowing_service import handle_shadowing_job
@@ -110,4 +111,5 @@ app.include_router(shadowing_router, prefix="/api")
 app.include_router(shadowing_router)
 app.include_router(tutor_router, prefix="/api")
 app.include_router(tutor_router)
+app.include_router(british_router)
 

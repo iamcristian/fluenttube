@@ -183,3 +183,15 @@ class Job(SQLModel, table=True):
         back_populates="job",
         sa_relationship_kwargs={"uselist": False},
     )
+
+class DictionaryCache(SQLModel, table=True):
+    __tablename__ = "dictionary_cache"
+
+    word: str = Field(primary_key=True, index=True)
+    phonetic_uk: Optional[str] = Field(default=None)
+    part_of_speech: Optional[str] = Field(default=None)
+    definition_en: Optional[str] = Field(default=None)
+    definition_es: Optional[str] = Field(default=None)
+    example_en: Optional[str] = Field(default=None)
+    audio_relative_path: Optional[str] = Field(default=None)
+    created_at: datetime = Field(default_factory=utc_now, nullable=False)

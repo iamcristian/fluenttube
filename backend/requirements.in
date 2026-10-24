@@ -23,4 +23,5 @@ nvidia-cudnn-cu12>=9.1.0.70
 # Optional Contextual LLM Tutor (Section 11, T20)
 google-genai>=1.0.0,<3.0.0
 
-
+# Free British TTS Audio
+edge-tts>=7.0.0,<8.0.0
