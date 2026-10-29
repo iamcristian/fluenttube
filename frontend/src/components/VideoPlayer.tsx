@@ -14,6 +14,8 @@ import {
 import { PlayerAdapter, PlayerError, PlayerState } from '../player/types';
 import { useYouTubePlayer } from '../player/useYouTubePlayer';
 import { useSegmentPlayback } from '../player/useSegmentPlayback';
+import { useSettingsStore } from '../stores/useSettingsStore';
+import { useEffect } from 'react';
 
 export interface VideoPlayerRef {
   play: () => void;
@@ -23,6 +25,7 @@ export interface VideoPlayerRef {
 
 export interface VideoPlayerProps {
   videoId: string;
+  mediaUrl?: string;
   title?: string;
   startSeconds?: number;
   endSeconds?: number;
@@ -37,11 +40,12 @@ export interface VideoPlayerProps {
 
 export const VideoPlayer = forwardRef<VideoPlayerRef, VideoPlayerProps>(({
   videoId,
+  mediaUrl,
   title,
   startSeconds = 0,
   endSeconds,
   nextStartSeconds,
-  initialLoop = false,
+  initialLoop,
   customAdapter,
   onReady,
   onStateChange,
@@ -49,6 +53,10 @@ export const VideoPlayer = forwardRef<VideoPlayerRef, VideoPlayerProps>(({
   className = '',
 }, ref) => {
   const containerRef = useRef<HTMLDivElement>(null);
+  const preferredSpeed = useSettingsStore((s) => s.playbackSpeed);
+  const preferredAutoLoop = useSettingsStore((s) => s.autoLoop);
+  const setStoreSpeed = useSettingsStore((s) => s.setPlaybackSpeed);
+  const setStoreAutoLoop = useSettingsStore((s) => s.setAutoLoop);
 
   const {
     adapter,
@@ -65,11 +73,23 @@ export const VideoPlayer = forwardRef<VideoPlayerRef, VideoPlayerProps>(({
   } = useYouTubePlayer({
     containerRef,
     videoId,
+    mediaUrl,
     customAdapter,
     onReady,
     onStateChange,
     onError,
   });
+
+  // Apply stored playback speed preference when adapter is ready or speed preference changes
+  useEffect(() => {
+    if (mediaUrl && isReady && adapter) adapter.seekTo(startSeconds);
+  }, [mediaUrl, isReady, adapter, startSeconds]);
+
+  useEffect(() => {
+    if (isReady && adapter) {
+      setPlaybackRate(preferredSpeed);
+    }
+  }, [isReady, adapter, preferredSpeed, setPlaybackRate]);
 
   const segmentBounds =
     endSeconds != null ? { start_seconds: startSeconds, end_seconds: endSeconds } : null;
@@ -77,6 +97,8 @@ export const VideoPlayer = forwardRef<VideoPlayerRef, VideoPlayerProps>(({
     nextStartSeconds != null
       ? { start_seconds: nextStartSeconds, end_seconds: nextStartSeconds + 5 }
       : null;
+
+  const effectiveLoop = initialLoop !== undefined ? initialLoop : preferredAutoLoop;
 
   const {
     playSegment,
@@ -92,7 +114,7 @@ export const VideoPlayer = forwardRef<VideoPlayerRef, VideoPlayerProps>(({
     player: adapter,
     segment: segmentBounds,
     nextSegment: nextSegmentBounds,
-    initialLoop,
+    initialLoop: effectiveLoop,
   });
 
   // Effective playing state: if bounded segment is provided, check segment playing or player state
@@ -158,7 +180,7 @@ export const VideoPlayer = forwardRef<VideoPlayerRef, VideoPlayerProps>(({
           >
             <Loader2 className="w-8 h-8 text-accent animate-spin" />
             <p className="text-xs text-text-secondary font-mono">
-              Loading YouTube player...
+              {mediaUrl ? 'Loading your local video...' : 'Loading YouTube player...'}
             </p>
           </div>
         )}
@@ -196,7 +218,7 @@ export const VideoPlayer = forwardRef<VideoPlayerRef, VideoPlayerProps>(({
               <h3 className="text-sm font-bold text-white">
                 {error.isEmbedRestricted
                   ? 'Embedding Restricted by Video Owner'
-                  : 'YouTube Playback Unavailable'}
+                  : mediaUrl ? 'Local Video Playback Unavailable' : 'YouTube Playback Unavailable'}
               </h3>
               <p className="text-xs text-danger/90 leading-relaxed">{error.message}</p>
             </div>
@@ -206,7 +228,7 @@ export const VideoPlayer = forwardRef<VideoPlayerRef, VideoPlayerProps>(({
               rel="noopener noreferrer"
               className="inline-flex items-center space-x-2 px-4 py-2 bg-surface-raised hover:bg-surface border border-border text-white text-xs font-semibold rounded-control shadow-md transition"
             >
-              <span>Watch on YouTube</span>
+              <span>{mediaUrl ? 'Open local video' : 'Watch on YouTube'}</span>
               <ExternalLink className="w-3.5 h-3.5 text-accent" />
             </a>
           </div>
@@ -255,7 +277,11 @@ export const VideoPlayer = forwardRef<VideoPlayerRef, VideoPlayerProps>(({
           {/* Loop Mode Toggle */}
           <button
             type="button"
-            onClick={() => setIsLooping(!isLooping)}
+            onClick={() => {
+              const nextLoop = !isLooping;
+              setIsLooping(nextLoop);
+              setStoreAutoLoop(nextLoop);
+            }}
             disabled={!isReady || !!error}
             aria-label="Toggle loop mode"
             aria-pressed={isLooping}
@@ -300,7 +326,10 @@ export const VideoPlayer = forwardRef<VideoPlayerRef, VideoPlayerProps>(({
                 <button
                   key={rate}
                   type="button"
-                  onClick={() => setPlaybackRate(rate)}
+                  onClick={() => {
+                    setPlaybackRate(rate);
+                    setStoreSpeed(rate);
+                  }}
                   disabled={!isReady || !!error || !isAvailable}
                   title={
                     !isAvailable

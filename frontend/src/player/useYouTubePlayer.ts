@@ -2,10 +2,12 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import { PlayerAdapter, PlayerError, PlayerState } from './types';
 import { YouTubePlayerAdapter } from './YouTubePlayerAdapter';
 import { loadYouTubeIframeApi } from './youtubeApiLoader';
+import { LocalVideoAdapter } from './LocalVideoAdapter';
 
 export interface UseYouTubePlayerOptions {
   containerRef: React.RefObject<HTMLDivElement>;
   videoId: string;
+  mediaUrl?: string;
   onReady?: () => void;
   onError?: (error: PlayerError) => void;
   onStateChange?: (state: PlayerState) => void;
@@ -29,6 +31,7 @@ export interface UseYouTubePlayerReturn {
 export function useYouTubePlayer({
   containerRef,
   videoId,
+  mediaUrl,
   onReady,
   onError,
   onStateChange,
@@ -93,7 +96,7 @@ export function useYouTubePlayer({
     setIsLoading(true);
     setError(null);
 
-    const adapterInstance = new YouTubePlayerAdapter(videoId);
+    const adapterInstance = mediaUrl ? new LocalVideoAdapter(mediaUrl) : new YouTubePlayerAdapter(videoId);
 
     // Wire up event listeners
     const unsubs = [
@@ -123,7 +126,10 @@ export function useYouTubePlayer({
     ];
 
     // Load API and instantiate
-    loadYouTubeIframeApi()
+    if (adapterInstance instanceof LocalVideoAdapter) {
+      adapterInstance.mount(containerRef.current);
+      setAdapter(adapterInstance);
+    } else loadYouTubeIframeApi()
       .then(() => {
         if (isCancelled || !containerRef.current || !window.YT) {
           return;
@@ -184,7 +190,7 @@ export function useYouTubePlayer({
       setAdapter(null);
       setIsReady(false);
     };
-  }, [videoId, containerRef, customAdapter, onReady, onStateChange, onError]);
+  }, [videoId, mediaUrl, containerRef, customAdapter, onReady, onStateChange, onError]);
 
   // Handle switching videoId on an existing ready player instance
   useEffect(() => {

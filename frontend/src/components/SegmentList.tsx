@@ -1,6 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import { CheckCircle2, Eye, Lock } from 'lucide-react';
 import { SegmentDTO } from '../api/types';
+import { useStudyStore } from '../stores/useStudyStore';
 
 export interface SegmentListProps {
   segments: SegmentDTO[];
@@ -16,6 +17,7 @@ export const SegmentList: React.FC<SegmentListProps> = ({
   className = '',
 }) => {
   const activeItemRef = useRef<HTMLButtonElement | null>(null);
+  const { retryingSegmentId } = useStudyStore();
 
   // Automatically scroll active segment into view within the container
   useEffect(() => {
@@ -38,7 +40,8 @@ export const SegmentList: React.FC<SegmentListProps> = ({
     >
       {segments.map((segment, index) => {
         const isActive = segment.id === activeSegmentId;
-        const isRevealedOrDone = segment.completed || segment.revealed;
+        const isRetrying = retryingSegmentId === segment.id;
+        const isRevealedOrDone = Boolean((segment.completed || segment.revealed) && !isRetrying);
         const displayNumber = index + 1; // Independent 1-based display number
 
         let statusIcon = (

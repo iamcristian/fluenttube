@@ -4,7 +4,7 @@ import os
 import shutil
 import subprocess
 from pathlib import Path
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Dict, Optional, Tuple, Union
 from fastapi import UploadFile
 from backend.app.config import BACKEND_DIR, settings
 from backend.app.errors import AppException
@@ -30,17 +30,20 @@ def ensure_temp_dir() -> Path:
     TEMP_DIR.mkdir(parents=True, exist_ok=True)
     return TEMP_DIR
 
-def safe_cleanup(*paths: Optional[Path]) -> None:
+def safe_cleanup(*paths: Union[Path, str, None]) -> None:
     """Safely delete temporary files, suppressing errors."""
-    for path in paths:
-        if path is not None and isinstance(path, Path):
-            try:
+    for raw_path in paths:
+        if raw_path is None:
+            continue
+        try:
+            path = Path(raw_path) if isinstance(raw_path, str) else raw_path
+            if isinstance(path, Path):
                 if path.is_file():
                     path.unlink(missing_ok=True)
                 elif path.is_dir():
                     shutil.rmtree(path, ignore_errors=True)
-            except Exception as e:
-                logger.warning(f"Failed to remove temporary file {path}: {e}")
+        except Exception as e:
+            logger.warning(f"Failed to remove temporary file {raw_path}: {e}")
 
 async def stream_and_validate_upload(
     audio_file: UploadFile,
@@ -118,6 +121,8 @@ def probe_audio(raw_path: Path) -> Dict[str, Any]:
         "format=duration,format_name:stream=codec_name,codec_type,duration",
         "-of",
         "json",
+        "-protocol_whitelist",
+        "file,pipe",
         str(raw_path),
     ]
 

@@ -6,6 +6,7 @@ from fastapi.testclient import TestClient
 from sqlmodel import Session, select
 
 from backend.app.database import get_engine, get_session, init_db
+from backend.app.config import settings
 from backend.app.errors import AppException
 from backend.app.main import app
 from backend.app.models import Job, Segment, Video, utc_now
@@ -69,7 +70,7 @@ def test_fetch_metadata_too_long_rejected():
         mock_ydl.extract_info.return_value = {
             "title": "Long Video",
             "is_live": False,
-            "duration": 1801,
+            "duration": settings.MAX_VIDEO_SECONDS + 1,
         }
         mock_ydl_cls.return_value.__enter__.return_value = mock_ydl
 
@@ -287,6 +288,22 @@ def test_api_ingest_cache_hit_returns_200(client, test_db):
     assert data["video_id"] == video_id
     assert data["status"] == "completed"
     assert data["job_id"] is None
+
+
+def test_block_cooldown_refuses_new_jobs_but_keeps_saved_videos_available(client, test_db):
+    with Session(test_db) as session:
+        session.add(Job(client_request_id="blocked-import", request_hash="test", kind="ingest", status="failed", error_code="YOUTUBE_AUTH_REQUIRED", finished_at=utc_now()))
+        session.add(Video(youtube_id="dQw4w9WgXcQ", title="Saved video", duration_seconds=100, transcription_source="captions_manual"))
+        session.commit()
+    with patch.object(job_runner, "enqueue_job") as enqueue:
+        blocked = client.post("/api/videos/ingest", json={"url": "https://www.youtube.com/watch?v=epbFY0DTPxs"})
+        assert blocked.status_code == 429
+        assert blocked.json()["error"]["code"] == "YOUTUBE_COOLDOWN"
+        assert blocked.json()["error"]["details"]["retry_after_seconds"] > 890
+        saved = client.post("/api/videos/ingest", json={"url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ"})
+        assert saved.status_code == 200
+        assert saved.json()["cached"] is True
+        enqueue.assert_not_called()
 
 def test_api_ingest_force_on_existing_returns_409(client, test_db):
     """When video already exists and force=True, returns 409 VIDEO_ALREADY_EXISTS."""
@@ -573,7 +590,7 @@ def test_real_video_ingestion_smoke(test_db):
             engine=test_db,
         )
     except AppException as app_err:
-        if app_err.code in ("RATE_LIMITED", "VIDEO_UNAVAILABLE", "SUBTITLES_NOT_FOUND"):
+        if app_err.code in ("RATE_LIMITED", "VIDEO_UNAVAILABLE", "SUBTITLES_NOT_FOUND", "YOUTUBE_AUTH_REQUIRED", "YOUTUBE_COOLDOWN", "YOUTUBE_CONNECTION_FAILED"):
             pytest.skip(f"Live YouTube access skipped: {app_err.code} - {app_err.message}")
         raise
     except Exception as exc:
@@ -839,3 +856,38 @@ def test_ingest_unpunctuated_captions_do_not_force_asr(test_db):
             video = session.get(Video, result["video_id"])
             assert video.transcription_source == "captions_auto"
             assert video.audio_relative_path is None
+
+def test_delete_video_removes_owned_history_and_local_files(client, test_db):
+    from backend.app.models import LocalVideoMedia, PracticeSession, TutorCache, VocabularyCache
+    from backend.app.services.local_video import media_root
+    path = media_root() / 'local/delete-fixture.mp4'
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_bytes(b'test local video')
+    playback = path.with_suffix('.playback.mp4')
+    playback.write_bytes(b'test playback copy')
+    with Session(test_db) as db:
+        target = Video(youtube_id='local:delete-fixture', title='Delete fixture', duration_seconds=5, transcription_source='local_asr')
+        other = Video(youtube_id='keep-fixture', title='Keep fixture', duration_seconds=5, transcription_source='captions_manual')
+        db.add(target); db.add(other); db.commit(); db.refresh(target); db.refresh(other)
+        video_id, other_id = target.id, other.id
+        segment = Segment(video_id=video_id, position=0, start_seconds=0, end_seconds=5, text='Hello.', timing_quality='word')
+        db.add(segment); db.commit(); db.refresh(segment)
+        segment_id = segment.id
+        db.add(LocalVideoMedia(video_id=video_id, file_relative_path='local/delete-fixture.mp4'))
+        db.add(PracticeSession(client_request_id='delete-session', request_hash='test', segment_id=segment_id))
+        db.add(TutorCache(segment_id=segment_id, language='es', provider='test', model='test', prompt_version='1', context_hash='test', response_json='{}'))
+        db.add(VocabularyCache(segment_id=segment_id, term='hello', language='es', provider='test', model='test', prompt_version='1', response_json='{}'))
+        db.commit()
+    progress = client.patch(f'/api/videos/{video_id}/progress', json={'last_segment_id': segment_id})
+    assert progress.status_code == 200
+    response = client.delete(f'/api/videos/{video_id}')
+    assert response.status_code == 200, response.text
+    assert response.json()['segment_ids'] == [segment_id]
+    with Session(test_db) as db:
+        assert db.get(Video, video_id) is None
+        assert db.get(Video, other_id) is not None
+        for model in (Segment, PracticeSession, TutorCache, VocabularyCache, LocalVideoMedia):
+            assert db.exec(select(model)).all() == []
+    assert not path.exists()
+    assert not playback.exists()
+    assert client.delete(f'/api/videos/{video_id}').status_code == 404

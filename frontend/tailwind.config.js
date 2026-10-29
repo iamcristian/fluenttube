@@ -8,18 +8,18 @@ export default {
   theme: {
     extend: {
       colors: {
-        background: '#0B1120',
+        background: '#0C1219',
         surface: {
-          DEFAULT: '#111B2E',
-          raised: '#172338',
+          DEFAULT: '#131D27',
+          raised: '#1C2A37',
         },
         border: {
-          DEFAULT: '#344256',
-          subtle: '#232F42',
+          DEFAULT: '#384959',
+          subtle: '#263440',
         },
         accent: {
-          DEFAULT: '#38BDF8',
-          hover: '#0EA5E9',
+          DEFAULT: '#7DE0C7',
+          hover: '#A3EBD9',
         },
         primary: {
           500: '#38BDF8',

@@ -72,6 +72,36 @@ describe('YouTube IFrame API Singleton Loader', () => {
     await promise;
     expect(previousHook).toHaveBeenCalledTimes(1);
   });
+
+  it('cleans up failed script tag on error and allows subsequent retry (F-20)', async () => {
+    const promise1 = loadYouTubeIframeApi();
+    const script = document.querySelector('script[src*="youtube.com/iframe_api"]') as HTMLScriptElement;
+    expect(script).not.toBeNull();
+
+    // Trigger script error
+    fireEvent.error(script);
+
+    await expect(promise1).rejects.toThrow('Failed to load YouTube IFrame API script.');
+
+    // Script element must be removed from DOM
+    expect(document.querySelector('script[src*="youtube.com/iframe_api"]')).toBeNull();
+
+    // Subsequent retry should inject a new script tag and work
+    const promise2 = loadYouTubeIframeApi();
+    const newScript = document.querySelector('script[src*="youtube.com/iframe_api"]');
+    expect(newScript).not.toBeNull();
+
+    (window as unknown as { YT: unknown }).YT = {
+      Player: vi.fn(),
+      PlayerState: {},
+    };
+
+    act(() => {
+      window.onYouTubeIframeAPIReady?.();
+    });
+
+    await expect(promise2).resolves.toBeUndefined();
+  });
 });
 
 describe('YouTubePlayerAdapter and Error Formatting', () => {

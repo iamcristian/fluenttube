@@ -17,12 +17,15 @@ from backend.app.errors import (
 from backend.app.routers.health import router as health_router
 from backend.app.routers.jobs import router as jobs_router
 from backend.app.routers.videos import router as videos_router
+from backend.app.routers.local_videos import router as local_videos_router
 from backend.app.routers.dictation import router as dictation_router
 from backend.app.routers.shadowing import router as shadowing_router
 from backend.app.routers.tutor import router as tutor_router
 from backend.app.routers.british import router as british_router
+from backend.app.routers.vocabulary import router as vocabulary_router
 from backend.app.services.jobs import job_runner
 from backend.app.services.youtube_service import handle_ingest_job
+from backend.app.services.local_video import handle_local_ingest_job
 from backend.app.services.shadowing_service import handle_shadowing_job
 
 ALLOWED_HOSTS = {"localhost", "127.0.0.1", "testserver"}
@@ -32,6 +35,7 @@ async def lifespan(app: FastAPI):
     # Initialize DB tables & register job handlers & recover interrupted jobs & start worker thread
     init_db()
     job_runner.register_handler("ingest", handle_ingest_job)
+    job_runner.register_handler("local_ingest", handle_local_ingest_job)
     job_runner.register_handler("shadowing", handle_shadowing_job)
     job_runner.start()
     yield
@@ -105,11 +109,14 @@ app.include_router(jobs_router, prefix="/api")
 app.include_router(jobs_router)
 app.include_router(videos_router, prefix="/api")
 app.include_router(videos_router)
+app.include_router(local_videos_router, prefix="/api")
 app.include_router(dictation_router, prefix="/api")
 app.include_router(dictation_router)
 app.include_router(shadowing_router, prefix="/api")
 app.include_router(shadowing_router)
 app.include_router(tutor_router, prefix="/api")
 app.include_router(tutor_router)
+app.include_router(vocabulary_router, prefix="/api")
+app.include_router(vocabulary_router)
 app.include_router(british_router)
 

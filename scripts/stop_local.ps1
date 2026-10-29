@@ -32,17 +32,27 @@ function Stop-TrackedProcess([int]$ProcessId, [string]$ServiceName) {
         return
     }
 
-    # Verify process identity before terminating to protect unrelated applications
-    $validNames = @("python", "node", "cmd", "npm", "powershell", "pwsh")
-    $matched = $false
-    foreach ($vn in $validNames) {
-        if ($proc.ProcessName -like "*$vn*") {
-            $matched = $true
-            break
+    # Verify process identity and workspace ownership before terminating
+    $procCim = Get-CimInstance Win32_Process -Filter "ProcessId = $ProcessId" -ErrorAction SilentlyContinue
+    $cmdLine = if ($procCim) { $procCim.CommandLine } else { "" }
+
+    $isOwned = $false
+    if ($cmdLine -and ($cmdLine -like "*english-learning*" -or $cmdLine -like "*backend.app.main*" -or $cmdLine -like "*vite*")) {
+        $isOwned = $true
+    } elseif ($proc.Path -and $proc.Path -like "*$ProjectRoot*") {
+        $isOwned = $true
+    } else {
+        # Fallback for process name matching
+        $validNames = @("python", "node")
+        foreach ($vn in $validNames) {
+            if ($proc.ProcessName -like "*$vn*") {
+                $isOwned = $true
+                break
+            }
         }
     }
 
-    if ($matched) {
+    if ($isOwned) {
         Write-Host "  [+] Stopping $ServiceName (PID: $ProcessId, Name: $($proc.ProcessName))..." -ForegroundColor Yellow
         try {
             # On Windows, stop tree to ensure child node/vite workers terminate cleanly
@@ -67,7 +77,7 @@ if ($PidData) {
     }
 }
 
-# Supplementary port check to clean up any orphaned worker processes on ports 8000 and 5173
+# Supplementary port check: only terminate if the command line is confirmed to belong to this project
 function Stop-PortListener([int]$Port, [string]$ServiceName) {
     try {
         $conns = Get-NetTCPConnection -LocalPort $Port -State Listen -ErrorAction SilentlyContinue
@@ -75,10 +85,13 @@ function Stop-PortListener([int]$Port, [string]$ServiceName) {
             foreach ($conn in $conns) {
                 $pidToKill = $conn.OwningProcess
                 if ($pidToKill -gt 0) {
-                    $p = Get-Process -Id $pidToKill -ErrorAction SilentlyContinue
-                    if ($p -and ($p.ProcessName -like "*python*" -or $p.ProcessName -like "*node*")) {
-                        Write-Host "  [+] Releasing port $Port held by $($p.ProcessName) (PID: $pidToKill)..." -ForegroundColor Yellow
+                    $procCim = Get-CimInstance Win32_Process -Filter "ProcessId = $pidToKill" -ErrorAction SilentlyContinue
+                    $cmdLine = if ($procCim) { $procCim.CommandLine } else { "" }
+                    if ($cmdLine -and ($cmdLine -like "*english-learning*" -or $cmdLine -like "*backend.app.main*")) {
+                        Write-Host "  [+] Releasing port $Port held by FluentTube process (PID: $pidToKill)..." -ForegroundColor Yellow
                         & taskkill /PID $pidToKill /T /F 2>$null | Out-Null
+                    } else {
+                        Write-Host "  [INFO] Port $Port listener (PID: $pidToKill) does not belong to FluentTube. Leaving untouched." -ForegroundColor DarkGray
                     }
                 }
             }

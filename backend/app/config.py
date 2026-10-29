@@ -14,13 +14,15 @@ class Settings(BaseSettings):
         "http://localhost:5173",
         "http://127.0.0.1:5173",
     ]
-    MAX_VIDEO_SECONDS: int = 1800
+    MAX_VIDEO_SECONDS: int = 3600
     MAX_SOURCE_AUDIO_BYTES: int = 262144000
     MAX_RECORDING_SECONDS: int = 30
     MAX_RECORDING_BYTES: int = 15728640
     JOB_QUEUE_MAX_WAITING: int = 8
     EXPORT_TTL_HOURS: int = 24
     LOG_LEVEL: str = "INFO"
+    # Optional, explicitly configured local session. Never read browser cookies automatically.
+    YOUTUBE_COOKIES_FILE: Optional[str] = None
 
     # Speech recognition (Section 10.3)
     SPEECH_DEVICE: str = "auto"
@@ -31,10 +33,12 @@ class Settings(BaseSettings):
     SPEECH_ALLOW_CPU_FALLBACK: bool = True
     MODEL_CACHE_DIR: str = "./data/models"
 
-    # Contextual LLM Tutor (Section 11, T20)
-    TUTOR_ENABLED: bool = False
+    # Contextual LLM Tutor & Vocabulary (Section 11, Section 6)
+    TUTOR_ENABLED: bool = True
     TUTOR_PROVIDER: str = "gemini"
     TUTOR_MODEL: str = "gemini-3.5-flash-lite"
+    OLLAMA_BASE_URL: str = "http://127.0.0.1:11434"
+    OLLAMA_MODEL: str = "llama3.2"
     GEMINI_API_KEY: Optional[str] = None
     TUTOR_TIMEOUT_SECONDS: int = 30
 

@@ -73,6 +73,7 @@ class SegmentDTO(BaseModel):
 class VideoSummaryDTO(BaseModel):
     id: int
     youtube_id: str
+    source_type: Literal["youtube", "local"] = "youtube"
     title: str
     channel: Optional[str] = None
     duration_seconds: float
@@ -257,3 +258,33 @@ class DictionaryEntryDTO(BaseModel):
     audio_url: str
     cached: bool = False
 
+# -----------------------------------------------------------------------------
+# Contextual Dictionary DTOs (Section 6, F-05)
+# -----------------------------------------------------------------------------
+
+class VocabularyExampleItem(BaseModel):
+    en: str
+    translation: str
+
+class VocabularyExplainRequestDTO(BaseModel):
+    segment_id: int
+    term: str = Field(min_length=1, max_length=200)
+    selection_start: Optional[int] = None
+    selection_end: Optional[int] = None
+    explanation_language: str = Field(default="es", max_length=10)
+
+class VocabularyExplainResponseDTO(BaseModel):
+    term: str
+    lemma: Optional[str] = None
+    part_of_speech: Optional[str] = None
+    meaning_en: str
+    translation: str
+    contextual_meaning: str
+    usage_notes: List[str] = Field(default_factory=list)
+    examples: List[VocabularyExampleItem] = Field(default_factory=list)
+    collocations: List[str] = Field(default_factory=list)
+    other_senses: List[str] = Field(default_factory=list)
+    warnings: List[str] = Field(default_factory=list)
+    cached: bool = False
+    provider: str
+    model: str

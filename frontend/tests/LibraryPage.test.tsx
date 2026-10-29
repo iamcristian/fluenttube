@@ -1,4 +1,4 @@
-import { screen, waitFor, fireEvent } from '@testing-library/react';
+import { screen, waitFor, fireEvent, within } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderWithQueryClient } from './testUtils';
 import { LibraryPage } from '../src/pages/LibraryPage';
@@ -9,6 +9,7 @@ describe('LibraryPage Component', () => {
   beforeEach(() => {
     vi.restoreAllMocks();
     localStorage.clear();
+    vi.spyOn(apiClient, 'getLocalImports').mockResolvedValue([]);
   });
 
   it('renders empty state guide when no videos exist in database', async () => {
@@ -124,5 +125,74 @@ describe('LibraryPage Component', () => {
     expect(await screen.findByText('Processing Video')).toBeInTheDocument();
     expect(await screen.findByText('Segmenting practice sentences...')).toBeInTheDocument();
     expect(await screen.findByText('70%')).toBeInTheDocument();
+  });
+
+  const libraryVideos: VideoSummaryDTO[] = [
+    { id: 11, youtube_id: 'abcdefghijk', title: 'Travel stories', channel: 'Everyday English', duration_seconds: 90, segment_count: 10, completed_count: 2, last_segment_id: 110, transcription_source: 'captions_manual', created_at: '2026-10-01' },
+    { id: 12, youtube_id: 'bcdefghijkl', title: 'A new beginning', channel: 'Learning Lab', duration_seconds: 30, segment_count: 5, completed_count: 0, last_segment_id: null, transcription_source: 'captions_manual', created_at: '2026-10-02' },
+    { id: 13, youtube_id: 'cdefghijklm', title: 'Finished lesson', channel: 'Learning Lab', duration_seconds: 45, segment_count: 4, completed_count: 4, last_segment_id: 130, transcription_source: 'captions_manual', created_at: '2026-10-03' },
+  ];
+
+  it('searches by channel without case sensitivity and clears a no-results state', async () => {
+    vi.spyOn(apiClient, 'getVideos').mockResolvedValue({ items: libraryVideos, total: 3 });
+    renderWithQueryClient(<LibraryPage onSelectVideo={vi.fn()} />);
+    const search = await screen.findByRole('textbox', { name: 'Search videos' });
+    fireEvent.change(search, { target: { value: ' LEARNING LAB ' } });
+    expect(screen.getAllByRole('article')).toHaveLength(2);
+    expect(screen.queryByRole('heading', { name: 'Travel stories' })).not.toBeInTheDocument();
+    fireEvent.change(search, { target: { value: 'not in library' } });
+    expect(screen.getByText('No videos match just yet')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Clear search and filters' }));
+    expect(screen.getAllByRole('article')).toHaveLength(3);
+  });
+
+  it('filters practice status and reviews completed videos', async () => {
+    vi.spyOn(apiClient, 'getVideos').mockResolvedValue({ items: libraryVideos, total: 3 });
+    const select = vi.fn();
+    renderWithQueryClient(<LibraryPage onSelectVideo={select} />);
+    await screen.findByRole('textbox', { name: 'Search videos' });
+    fireEvent.click(screen.getByRole('button', { name: 'Not started' }));
+    expect(screen.getAllByRole('article')).toHaveLength(1);
+    expect(within(screen.getByRole('article')).getByRole('heading')).toHaveTextContent('A new beginning');
+    fireEvent.click(screen.getByRole('button', { name: 'Completed' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Review Practice' }));
+    expect(select).toHaveBeenCalledWith(13);
+  });
+
+  it('sorts videos by duration and resumes the most recently opened unfinished video', async () => {
+    vi.spyOn(apiClient, 'getVideos').mockResolvedValue({ items: libraryVideos, total: 3 });
+    const select = vi.fn();
+    renderWithQueryClient(<LibraryPage onSelectVideo={select} />);
+    await screen.findByRole('textbox', { name: 'Search videos' });
+    fireEvent.change(screen.getByLabelText('Sort videos'), { target: { value: 'shortest' } });
+    expect(within(screen.getAllByRole('article')[0]).getByRole('heading')).toHaveTextContent('A new beginning');
+    fireEvent.click(screen.getByRole('button', { name: 'Pick up where you left off' }));
+    expect(select).toHaveBeenCalledWith(11);
+  });
+
+  it('searches videos beyond the first API page', async () => {
+    const getVideos = vi.spyOn(apiClient, 'getVideos')
+      .mockResolvedValueOnce({ items: [libraryVideos[0]], total: 2 })
+      .mockResolvedValueOnce({ items: [libraryVideos[1]], total: 2 });
+    renderWithQueryClient(<LibraryPage onSelectVideo={vi.fn()} />);
+    expect(await screen.findByRole('heading', { name: 'A new beginning' })).toBeInTheDocument();
+    expect(getVideos).toHaveBeenCalledWith(100, 1);
+  });
+
+  it('shows a local source without requesting a YouTube thumbnail', async () => {
+    vi.spyOn(apiClient, 'getVideos').mockResolvedValue({ items: [{ ...libraryVideos[0], youtube_id: 'local:example', source_type: 'local', channel: 'Local video' }], total: 1 });
+    const { container } = renderWithQueryClient(<LibraryPage onSelectVideo={vi.fn()} />);
+    expect(await screen.findByText('Local video · no YouTube connection')).toBeInTheDocument();
+    expect(container.querySelector('img')).toBeNull();
+  });
+
+  it('finds an ongoing local import even when browser storage is empty', async () => {
+    const job = { id: 'saved-local-import', kind: 'local_ingest' as const, status: 'running' as const, stage: 'recovering', progress: 0.4, error: null, created_at: '2026-10-28' };
+    vi.spyOn(apiClient, 'getVideos').mockResolvedValue({ items: [], total: 0 });
+    vi.spyOn(apiClient, 'getLocalImports').mockResolvedValue([job]);
+    vi.spyOn(apiClient, 'getJob').mockResolvedValue(job);
+    renderWithQueryClient(<LibraryPage onSelectVideo={vi.fn()} />);
+    expect(await screen.findByText('Restoring your saved video...')).toBeInTheDocument();
+    expect(localStorage.getItem('fluenttube_pending_job_id')).toBe(job.id);
   });
 });

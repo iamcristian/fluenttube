@@ -175,14 +175,17 @@ describe('DictationBox Component', () => {
     fireEvent.keyDown(textarea, { key: 'Enter', ctrlKey: true });
 
     await waitFor(() => {
-      expect(checkSpy).toHaveBeenCalledWith('sess-uuid-101', {
-        input_text: "I'm learning wrong vocabulary.",
-      });
+      expect(checkSpy).toHaveBeenCalledWith(
+        'sess-uuid-101',
+        expect.objectContaining({
+          input_text: "I'm learning wrong vocabulary.",
+        })
+      );
     });
 
     // Displays feedback with substitutions breakdown
     expect(await screen.findByText('Needs practice')).toBeInTheDocument();
-    expect(screen.getByText(/Substitutions: 1/i)).toBeInTheDocument();
+    expect(screen.getByText(/Words to revisit: 1/i)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /try again/i })).toBeInTheDocument();
   });
 
@@ -283,5 +286,79 @@ describe('DictationBox Component', () => {
     await waitFor(() => {
       expect(screen.queryByRole('heading', { name: /keyboard shortcuts/i })).not.toBeInTheDocument();
     });
+  });
+
+  it('initializes session automatically when store is empty and does not drop session (F-01)', async () => {
+    // Reset store to empty
+    useStudyStore.getState().reset();
+
+    const mockSession: SessionResponseDTO = {
+      id: 'fresh-sess-101',
+      segment_id: 101,
+      answer_revealed: false,
+      hinted_display_indices: [],
+      last_input: '',
+      last_result: null,
+      created_at: new Date().toISOString(),
+    };
+    vi.spyOn(apiClient, 'createSession').mockResolvedValue(mockSession);
+
+    renderWithQueryClient(<DictationBox segment={sampleSegment} />);
+
+    await waitFor(() => {
+      expect(apiClient.createSession).toHaveBeenCalledWith(101);
+      expect(useStudyStore.getState().sessions[101]).toEqual(mockSession);
+    });
+  });
+
+  it('conceals target words when Try Again is clicked on a revealed segment (F-04)', async () => {
+    useStudyStore.getState().reset();
+
+    const revealedSegment: SegmentDTO = {
+      ...sampleSegment,
+      revealed: true,
+      completed: false,
+    };
+
+    const initialSession: SessionResponseDTO = {
+      id: 'sess-revealed-1',
+      segment_id: 101,
+      answer_revealed: true,
+      hinted_display_indices: [],
+      last_input: '',
+      last_result: null,
+      created_at: new Date().toISOString(),
+    };
+    useStudyStore.getState().setSession(101, initialSession);
+
+    const freshSession: SessionResponseDTO = {
+      id: 'sess-fresh-2',
+      segment_id: 101,
+      answer_revealed: false,
+      hinted_display_indices: [],
+      last_input: '',
+      last_result: null,
+      created_at: new Date().toISOString(),
+    };
+    vi.spyOn(apiClient, 'createSession').mockResolvedValue(freshSession);
+
+    renderWithQueryClient(<DictationBox segment={revealedSegment} />);
+
+    // Initially, because session is revealed, actual words are displayed
+    expect(screen.getByText('comprehensive')).toBeInTheDocument();
+
+    // Click Try Again
+    const tryAgainBtn = screen.getByRole('button', { name: /try again/i });
+    await act(async () => {
+      fireEvent.click(tryAgainBtn);
+    });
+
+    await waitFor(() => {
+      expect(apiClient.createSession).toHaveBeenCalledWith(101);
+    });
+
+    // After clicking Try Again, the answer must be CONCEALED (dashes shown, target word hidden)
+    expect(screen.queryByText('comprehensive')).not.toBeInTheDocument();
+    expect(useStudyStore.getState().retryingSegmentId).toBe(101);
   });
 });

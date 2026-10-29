@@ -43,6 +43,12 @@ media_cache/
 *.m4a
 *.webm
 *.ogg
+*.mp4
+*.mkv
+*.mov
+*.flac
+*.srt
+*.vtt
 
 # Environment and Secrets (CRITICAL: never commit API keys or local settings)
 .env
@@ -51,6 +57,14 @@ media_cache/
 backend/.env
 backend/.env.*
 !backend/.env.example
+**/cookies.txt
+**/youtube-cookies*.txt
+**/*cookies*.json
+**/*.pem
+**/*.key
+credentials.json
+credentials.*.json
+service-account*.json
 frontend/.env
 frontend/.env.*
 !frontend/.env.example
@@ -65,3 +79,18 @@ Thumbs.db
 .vscode/
 .idea/
 *.swp
+
+# Additional local database formats, backups and generated reports
+*.sqlite
+*.sqlite3
+*.sqlite-shm
+*.sqlite-wal
+*.sqlite3-shm
+*.sqlite3-wal
+*.bak
+backups/
+coverage/
+.coverage
+htmlcov/
+*.transcript.json
+*.chunk.wav

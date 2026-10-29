@@ -72,25 +72,34 @@ export const GrammarTutorDrawer: React.FC<GrammarTutorDrawerProps> = ({
     setSelectedLang(explanationLanguage);
   }, [explanationLanguage]);
 
+  const activeRequestIdRef = useRef<string>('');
+
   // Check tutor availability & cached state on drawer open
   useEffect(() => {
-    if (!isOpen || !segment) return;
+    if (!isOpen || !segment) {
+      setCurrentExplanation(null);
+      return;
+    }
 
     let isMounted = true;
     const cacheKey = `${segment.id}_${selectedLang}`;
-    const cached = tutorExplanations[cacheKey];
+    activeRequestIdRef.current = cacheKey;
 
+    const cached = tutorExplanations[cacheKey];
     if (cached) {
       setCurrentExplanation(cached);
       setDrawerState('ready');
       return;
     }
 
+    // Immediately clear stale explanation from a previous sentence (F-12)
+    setCurrentExplanation(null);
+
     // Check health to see if tutor is enabled
     apiClient
       .getHealth()
       .then((health) => {
-        if (!isMounted) return;
+        if (!isMounted || activeRequestIdRef.current !== cacheKey) return;
         if (!health.tutor.enabled) {
           setDrawerState('disabled');
         } else {
@@ -99,9 +108,8 @@ export const GrammarTutorDrawer: React.FC<GrammarTutorDrawerProps> = ({
         }
       })
       .catch((err) => {
-        if (!isMounted) return;
+        if (!isMounted || activeRequestIdRef.current !== cacheKey) return;
         console.warn('Failed to query health for tutor check:', err);
-        // Default to idle to allow attempt
         setDrawerState('idle');
       });
 
@@ -134,19 +142,24 @@ export const GrammarTutorDrawer: React.FC<GrammarTutorDrawerProps> = ({
     }
   }, [isOpen, triggerRef]);
 
-  // Request explanation from API
+  // Request explanation from API with request identity guard (F-12)
   const handleFetchExplanation = async () => {
     if (!segment) return;
+    const reqKey = `${segment.id}_${selectedLang}`;
+    activeRequestIdRef.current = reqKey;
 
     setDrawerState('loading');
     setErrorMessage(null);
 
     try {
       const result = await apiClient.explainSegment(segment.id, selectedLang);
-      setCurrentExplanation(result);
-      setTutorExplanation(segment.id, selectedLang, result);
-      setDrawerState('ready');
+      if (activeRequestIdRef.current === reqKey) {
+        setCurrentExplanation(result);
+        setTutorExplanation(segment.id, selectedLang, result);
+        setDrawerState('ready');
+      }
     } catch (err: unknown) {
+      if (activeRequestIdRef.current !== reqKey) return;
       setDrawerState('error');
       if (err instanceof ApiError) {
         if (err.code === 'TUTOR_DISABLED') {

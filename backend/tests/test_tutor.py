@@ -190,6 +190,7 @@ def test_tutor_disabled_returns_503(client: TestClient, db_session: Session, mon
 def test_tutor_empty_api_key_returns_503(client: TestClient, db_session: Session, monkeypatch):
     """When tutor is enabled but API key is empty string, returns 503 TUTOR_DISABLED."""
     monkeypatch.setattr(settings, "TUTOR_ENABLED", True)
+    monkeypatch.setattr(settings, "TUTOR_PROVIDER", "gemini")
     monkeypatch.setattr(settings, "GEMINI_API_KEY", "")
 
     _, segments = seed_test_video(db_session, completed=True)

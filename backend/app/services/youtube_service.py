@@ -1,5 +1,7 @@
 import os
+import logging
 import re
+import shutil
 import urllib.parse
 import uuid
 from pathlib import Path
@@ -23,6 +25,7 @@ from backend.app.errors import AppException
 from backend.app.models import Segment, Video, utc_now
 from backend.app.services.segmenter import RawFragment, segment_fragments, segment_asr_result
 from backend.app.services.whisper_engine import whisper_engine
+from backend.app.services.youtube_access import ensure_youtube_import_allowed
 
 YOUTUBE_ID_REGEX = re.compile(r"^[A-Za-z0-9_-]{11}$")
 ALLOWED_HOSTNAMES = {
@@ -32,6 +35,60 @@ ALLOWED_HOSTNAMES = {
     "youtu.be",
     "www.youtu.be",
 }
+
+logger = logging.getLogger(__name__)
+
+
+def youtube_download_options() -> Dict[str, Any]:
+    """Shared setup for metadata and audio, without automatic browser-session access."""
+    options: Dict[str, Any] = {
+        "quiet": True, "no_warnings": True, "noplaylist": True,
+        "retries": 0, "extractor_retries": 0, "fragment_retries": 0,
+    }
+    node_path = shutil.which("node")
+    if node_path:
+        options["js_runtimes"] = {"deno": {}, "node": {"path": node_path}}
+    if settings.YOUTUBE_COOKIES_FILE:
+        cookie_path = Path(settings.YOUTUBE_COOKIES_FILE).expanduser()
+        if not cookie_path.is_absolute():
+            cookie_path = BACKEND_DIR / cookie_path
+        if not cookie_path.is_file():
+            raise AppException(
+                code="YOUTUBE_SESSION_INVALID",
+                message="The configured YouTube session file was not found. Check your local import settings.",
+                status_code=503,
+            )
+        options["cookiefile"] = str(cookie_path)
+    return options
+
+
+def youtube_failure(exc: Exception, youtube_id: str, *, audio: bool = False) -> AppException:
+    """Expose actionable failures rather than downloader stack traces and CLI commands."""
+    message = str(exc).lower().replace("’", "'")
+    logger.warning("YouTube %s failed for %s: %s", "audio" if audio else "metadata", youtube_id, exc)
+    if "429" in message or "too many requests" in message:
+        return AppException(
+            code="RATE_LIMITED",
+            message="YouTube is temporarily limiting requests from this connection. Wait a while before retrying; repeated attempts can prolong the block.",
+            status_code=429, retryable=True,
+        )
+    if any(marker in message for marker in ("not a bot", "sign in to confirm", "login required", "login_required")):
+        return AppException(
+            code="YOUTUBE_AUTH_REQUIRED",
+            message="YouTube is asking for a verification before allowing this import. Your link is valid, but the app cannot complete that verification for you.",
+            status_code=403, retryable=False,
+        )
+    if any(marker in message for marker in ("timed out", "timeout", "connection reset", "temporary failure", "unable to download webpage")):
+        return AppException(
+            code="YOUTUBE_CONNECTION_FAILED",
+            message="The connection to YouTube was interrupted. Check your connection and try this video again.",
+            status_code=502, retryable=True,
+        )
+    return AppException(
+        code="AUDIO_DOWNLOAD_FAILED" if audio else "VIDEO_UNAVAILABLE",
+        message="The video audio could not be downloaded. Try again later or choose another video." if audio else "YouTube could not provide this video. Check that it is public and available to watch.",
+        status_code=502 if audio else 404, retryable=audio,
+    )
 
 def parse_youtube_url(url: str) -> str:
     """
@@ -187,6 +244,7 @@ def fetch_video_metadata(youtube_id: str) -> Dict[str, Any]:
     """
     canonical_url = build_canonical_youtube_url(youtube_id)
     ydl_opts = {
+        **youtube_download_options(),
         "skip_download": True,
         "quiet": True,
         "no_warnings": True,
@@ -197,12 +255,7 @@ def fetch_video_metadata(youtube_id: str) -> Dict[str, Any]:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(canonical_url, download=False)
     except Exception as exc:
-        raise AppException(
-            code="VIDEO_UNAVAILABLE",
-            message=f"YouTube video could not be loaded: {str(exc)}",
-            status_code=404,
-            retryable=False,
-        )
+        raise youtube_failure(exc, youtube_id) from exc
 
     if not info:
         raise AppException(
@@ -230,13 +283,13 @@ def fetch_video_metadata(youtube_id: str) -> Dict[str, Any]:
             retryable=False,
         )
 
-    if duration > 1800:
+    if duration > settings.MAX_VIDEO_SECONDS:
         raise AppException(
             code="VIDEO_TOO_LONG",
-            message="Video duration exceeds maximum limit of 30 minutes (1800 seconds).",
+            message=f"Video duration exceeds the limit of {settings.MAX_VIDEO_SECONDS / 60:g} minutes.",
             status_code=400,
             retryable=False,
-            details={"duration_seconds": duration, "max_seconds": 1800},
+            details={"duration_seconds": duration, "max_seconds": settings.MAX_VIDEO_SECONDS},
         )
 
     return {
@@ -368,6 +421,7 @@ def download_youtube_audio(youtube_id: str) -> Path:
     canonical_url = build_canonical_youtube_url(youtube_id)
 
     ydl_opts = {
+        **youtube_download_options(),
         "format": "bestaudio[ext=m4a]/bestaudio/best",
         "outtmpl": tmp_template,
         "quiet": True,
@@ -385,13 +439,7 @@ def download_youtube_audio(youtube_id: str) -> Path:
                 f.unlink(missing_ok=True)
             except Exception:
                 pass
-        raise AppException(
-            code="AUDIO_DOWNLOAD_FAILED",
-            message=f"Failed to download audio for YouTube video: {str(exc)}",
-            status_code=502,
-            retryable=True,
-            details={"youtube_id": youtube_id, "error": str(exc)},
-        )
+        raise youtube_failure(exc, youtube_id, audio=True) from exc
 
     downloaded_files = list(audio_dir.glob(f"{youtube_id}_{part_id}.part.*"))
     if not downloaded_files:
@@ -433,6 +481,10 @@ def handle_ingest_job(
     youtube_id = payload["youtube_id"]
     force_gpu_whisper = payload.get("force_gpu_whisper", False)
     active_engine = engine or default_engine
+
+    # Queued jobs also stop locally after an earlier job encounters a YouTube block.
+    with Session(active_engine) as session:
+        ensure_youtube_import_allowed(session)
 
     # Stage 1: Metadata (10%)
     update_progress("metadata", 0.10)

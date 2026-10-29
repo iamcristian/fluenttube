@@ -298,12 +298,21 @@ def check_dictation(
     ).first()
 
     if existing_attempt:
+        if existing_attempt.session_id != session_obj.id:
+            raise AppException(
+                code="IDEMPOTENCY_CONFLICT",
+                message="Client request ID already used with a different session.",
+                status_code=status.HTTP_409_CONFLICT,
+                retryable=False,
+            )
+
         if existing_attempt.request_hash == req_hash:
-            # Replay existing result
+            # Replay existing result for this specific attempt
             if session_obj.last_result_json:
                 try:
                     cached_dict = json.loads(session_obj.last_result_json)
-                    return DictationResultDTO(**cached_dict)
+                    if cached_dict.get("attempt_id") == existing_attempt.id:
+                        return DictationResultDTO(**cached_dict)
                 except Exception:
                     pass
 

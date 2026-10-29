@@ -1,4 +1,5 @@
 import threading
+import json
 import time
 import pytest
 from fastapi.testclient import TestClient
@@ -207,6 +208,79 @@ def test_startup_recovery_interrupted_jobs(tmp_path):
         assert recovered_r.error_code == "JOB_INTERRUPTED"
         assert recovered_r.finished_at is not None
 
+
+def test_start_does_not_interrupt_an_already_running_worker(test_runner):
+    entered = threading.Event()
+    release = threading.Event()
+    def handler(job_id, payload, update_progress):
+        entered.set()
+        release.wait(timeout=3)
+        return {"done": True}
+    test_runner.register_handler("blocking", handler)
+    job, _ = test_runner.enqueue_job("blocking", "idempotent-start", {})
+    assert entered.wait(2)
+    try:
+        test_runner.start()
+        assert test_runner.get_job(job.id).status == "running"
+    finally:
+        release.set()
+
+
+def test_startup_requeues_local_files_without_retrying_youtube(tmp_path, monkeypatch):
+    from backend.app.config import settings
+    root = tmp_path / "media"
+    (root / "local").mkdir(parents=True)
+    (root / "local/saved.mp4").write_bytes(b"saved file")
+    monkeypatch.setattr(settings, "MEDIA_ROOT", str(root))
+    engine = get_engine(f"sqlite:///{tmp_path / 'recovery.db'}")
+    init_db(engine)
+    with Session(engine) as session:
+        local = Job(client_request_id="local", request_hash="test", kind="local_ingest", status="running", payload_json=json.dumps({"file_relative_path": "local/saved.mp4"}))
+        youtube = Job(client_request_id="youtube", request_hash="test", kind="ingest", status="running")
+        session.add_all([local, youtube])
+        session.commit()
+        session.refresh(local)
+        session.refresh(youtube)
+        local_id, youtube_id = local.id, youtube.id
+    called = threading.Event()
+    runner = JobRunner(engine_override=engine)
+    def recover(job_id, payload, update_progress):
+        called.set()
+        return {"video_id": 1}
+    runner.register_handler("local_ingest", recover)
+    runner.start()
+    try:
+        assert called.wait(2)
+        assert runner.get_job(youtube_id).error_code == "JOB_INTERRUPTED"
+        assert runner.get_job(local_id).status in {"running", "succeeded"}
+    finally:
+        runner.stop()
+
+
+def test_resume_local_job_reuses_saved_file_and_does_not_duplicate_queue(tmp_path, monkeypatch):
+    from backend.app.config import settings
+    root = tmp_path / "media"
+    (root / "local").mkdir(parents=True)
+    (root / "local/saved.mp4").write_bytes(b"saved file")
+    monkeypatch.setattr(settings, "MEDIA_ROOT", str(root))
+    engine = get_engine(f"sqlite:///{tmp_path / 'resume.db'}")
+    init_db(engine)
+    with Session(engine) as session:
+        job = Job(client_request_id="local-resume", request_hash="test", kind="local_ingest", status="failed", error_code="JOB_INTERRUPTED", payload_json=json.dumps({"file_relative_path": "local/saved.mp4"}))
+        remote = Job(client_request_id="remote", request_hash="test", kind="ingest", status="failed", error_code="JOB_INTERRUPTED")
+        session.add_all([job, remote])
+        session.commit()
+        session.refresh(job)
+        session.refresh(remote)
+        job_id, remote_id = job.id, remote.id
+    runner = JobRunner(engine_override=engine)
+    assert runner.resume_local_job(job_id).status == "queued"
+    assert runner.resume_local_job(job_id).id == job_id
+    assert runner.queue.qsize() == 1
+    with pytest.raises(AppException) as error:
+        runner.resume_local_job(remote_id)
+    assert error.value.code == "JOB_NOT_RESUMABLE"
+
 def test_get_job_api_endpoint():
     """Verify GET /api/jobs/{id} returns clean JobDTO without internal fields."""
     with TestClient(app) as client:
@@ -215,8 +289,10 @@ def test_get_job_api_endpoint():
         assert res_404.status_code == 404
         assert res_404.json()["error"]["code"] == "RESOURCE_NOT_FOUND"
 
-def test_health_check_responsive_during_job_execution(test_runner):
+def test_health_check_responsive_during_job_execution(test_runner, monkeypatch):
     """Health check remains responsive while worker is executing a long-running job."""
+    # Measure worker contention independently of the host's GPU diagnostic utility.
+    monkeypatch.setattr("backend.app.services.whisper_engine.whisper_engine._query_gpu_diagnostics", lambda: {})
     job_blocking = threading.Event()
     job_started = threading.Event()
 

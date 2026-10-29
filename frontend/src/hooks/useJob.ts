@@ -27,6 +27,11 @@ export function useJob(jobId: string | null, options: UseJobOptions = {}) {
       if (status === 'queued' || status === 'running') {
         return pollInterval;
       }
+      const job = queryState.state.data;
+      if (job?.kind === 'local_ingest' && job.error?.code === 'JOB_INTERRUPTED' && job.error.details?.can_resume !== false) {
+        // A restarted local app may have recovered the same job. This only reads local status.
+        return pollInterval;
+      }
       return false;
     },
     refetchOnWindowFocus: false,
@@ -36,6 +41,10 @@ export function useJob(jobId: string | null, options: UseJobOptions = {}) {
 
   useEffect(() => {
     if (!job) return;
+    if (job.status === 'queued' || job.status === 'running') {
+      handledRef.current = null;
+      return;
+    }
     const key = `${job.id}:${job.status}`;
     if (handledRef.current === key) return;
 

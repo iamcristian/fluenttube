@@ -93,8 +93,16 @@ export async function request<T>(endpoint: string, options: RequestInit = {}): P
 }
 
 export const apiClient = {
+  uploadVideo: (file: File): Promise<IngestResponseDTO> => {
+    const body = new FormData();
+    body.append('video_file', file);
+    return request<IngestResponseDTO>('/videos/upload', { method: 'POST', body });
+  },
+  getVideoMediaUrl: (videoId: number): string => `${API_BASE_URL}/videos/${videoId}/media?playback=2`,
   getHealth: (): Promise<HealthResponse> => request<HealthResponse>('/health'),
   getJob: (jobId: string): Promise<JobDTO> => request<JobDTO>(`/jobs/${jobId}`),
+  resumeLocalJob: (jobId: string): Promise<JobDTO> => request<JobDTO>(`/jobs/${jobId}/resume`, { method: 'POST' }),
+  getLocalImports: (): Promise<JobDTO[]> => request<JobDTO[]>('/jobs/recoverable/local'),
   ingestVideo: (data: IngestRequestDTO): Promise<IngestResponseDTO> =>
     request<IngestResponseDTO>('/videos/ingest', {
       method: 'POST',
@@ -102,6 +110,8 @@ export const apiClient = {
     }),
   getVideos: (limit: number = 50, offset: number = 0): Promise<PaginatedResponse<VideoSummaryDTO>> =>
     request<PaginatedResponse<VideoSummaryDTO>>(`/videos?limit=${limit}&offset=${offset}`),
+  deleteVideo: (id: number): Promise<{ deleted: boolean; video_id: number; segment_ids: number[] }> =>
+    request<{ deleted: boolean; video_id: number; segment_ids: number[] }>(`/videos/${id}`, { method: 'DELETE' }),
   getVideo: (id: number): Promise<VideoDetailDTO> => request<VideoDetailDTO>(`/videos/${id}`),
   updateVideoProgress: (id: number, lastSegmentId: number): Promise<VideoProgressResponseDTO> =>
     request<VideoProgressResponseDTO>(`/videos/${id}/progress`, {
@@ -170,6 +180,13 @@ export const apiClient = {
     request<import('./types').TutorExplanationDTO>('/tutor/explain', {
       method: 'POST',
       body: JSON.stringify({ segment_id: segmentId, language }),
+    }),
+  explainVocabulary: (
+    req: import('./types').VocabularyExplainRequestDTO
+  ): Promise<import('./types').VocabularyExplainResponseDTO> =>
+    request<import('./types').VocabularyExplainResponseDTO>('/vocabulary/explain', {
+      method: 'POST',
+      body: JSON.stringify(req),
     }),
   getDictionaryEntry: (word: string): Promise<import('./types').DictionaryEntryDTO> =>
     request<import('./types').DictionaryEntryDTO>(`/british/dictionary?word=${encodeURIComponent(word)}`),

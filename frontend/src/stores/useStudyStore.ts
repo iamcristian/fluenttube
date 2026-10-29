@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
 import {
   SegmentDTO,
   SessionResponseDTO,
@@ -26,6 +27,8 @@ export interface StudyState {
   showRecordingWarning: boolean;
   isSidebarOpen: boolean;
   activeStep: StudyStep;
+  retryingSegmentId: number | null;
+  discardRecordingRequested: number;
 
   // Actions
   setVideo: (video: VideoDetailDTO) => void;
@@ -40,7 +43,7 @@ export interface StudyState {
   setDraft: (segmentId: number, text: string) => void;
   getCurrentDraft: () => string;
   setSession: (segmentId: number, session: SessionResponseDTO) => void;
-  setResult: (segmentId: number, result: DictationResultDTO) => void;
+  setResult: (segmentId: number, result: DictationResultDTO | null) => void;
   setShadowingResult: (segmentId: number, result: ShadowingResultDTO) => void;
   setShadowingJob: (segmentId: number, jobId: string | null) => void;
   setTutorExplanation: (segmentId: number, language: string, explanation: TutorExplanationDTO) => void;
@@ -49,10 +52,13 @@ export interface StudyState {
   updateSegment: (segmentId: number, updates: Partial<SegmentDTO>) => void;
   setIsRecording: (recording: boolean) => void;
   setShowRecordingWarning: (show: boolean) => void;
+  requestDiscardRecording: () => void;
   toggleSidebar: () => void;
   setSidebarOpen: (open: boolean) => void;
   setActiveStep: (step: StudyStep) => void;
+  setRetryingSegmentId: (id: number | null) => void;
   reset: () => void;
+  forgetVideo: (videoId: number, segmentIds: number[]) => void;
 }
 
 /**
@@ -81,7 +87,7 @@ export function resolveInitialSegment(video: VideoDetailDTO): SegmentDTO | null 
   return video.segments[0];
 }
 
-export const useStudyStore = create<StudyState>((set, get) => ({
+export const useStudyStore = create<StudyState>()(persist((set, get) => ({
   video: null,
   activeSegmentId: null,
   activePosition: 0,
@@ -97,6 +103,8 @@ export const useStudyStore = create<StudyState>((set, get) => ({
   showRecordingWarning: false,
   isSidebarOpen: false,
   activeStep: 'dictate',
+  retryingSegmentId: null,
+  discardRecordingRequested: 0,
 
   setVideo: (video: VideoDetailDTO) => {
     const currentActiveId = get().activeSegmentId;
@@ -120,6 +128,8 @@ export const useStudyStore = create<StudyState>((set, get) => ({
       video,
       activeSegmentId: initial ? initial.id : null,
       activePosition: initial ? initial.position : 0,
+      activeStep: video.last_segment_id || video.segments.some(s => s.completed || s.revealed) ? 'dictate' : 'listen',
+      isTutorOpen: false,
     });
   },
 
@@ -145,6 +155,7 @@ export const useStudyStore = create<StudyState>((set, get) => ({
       activeSegmentId: target.id,
       activePosition: target.position,
       showRecordingWarning: false,
+      retryingSegmentId: null,
     });
 
     return { success: true };
@@ -192,17 +203,22 @@ export const useStudyStore = create<StudyState>((set, get) => ({
     }));
   },
 
-  setResult: (segmentId: number, result: DictationResultDTO) => {
-    set((state) => ({
-      results: {
-        ...state.results,
-        [segmentId]: result,
-      },
-      staleDiffs: {
-        ...state.staleDiffs,
-        [segmentId]: false,
-      },
-    }));
+  setResult: (segmentId: number, result: DictationResultDTO | null) => {
+    set((state) => {
+      const nextResults = { ...state.results };
+      if (result) {
+        nextResults[segmentId] = result;
+      } else {
+        delete nextResults[segmentId];
+      }
+      return {
+        results: nextResults,
+        staleDiffs: {
+          ...state.staleDiffs,
+          [segmentId]: false,
+        },
+      };
+    });
   },
 
   setShadowingResult: (segmentId: number, result: ShadowingResultDTO) => {
@@ -295,6 +311,29 @@ export const useStudyStore = create<StudyState>((set, get) => ({
     }));
   },
 
+  setRetryingSegmentId: (id: number | null) => {
+    set({ retryingSegmentId: id });
+  },
+
+  requestDiscardRecording: () => {
+    set((state) => ({
+      discardRecordingRequested: state.discardRecordingRequested + 1,
+      isRecording: false,
+    }));
+  },
+
+  forgetVideo: (videoId, segmentIds) => {
+    const removed = new Set(segmentIds);
+    const keep = <T,>(entries: Record<number, T>): Record<number, T> =>
+      Object.fromEntries(Object.entries(entries).filter(([key]) => !removed.has(Number(key))));
+    set(state => ({
+      drafts: keep(state.drafts), sessions: keep(state.sessions), results: keep(state.results),
+      shadowingResults: keep(state.shadowingResults), shadowingJobs: keep(state.shadowingJobs),
+      staleDiffs: keep(state.staleDiffs),
+      tutorExplanations: Object.fromEntries(Object.entries(state.tutorExplanations).filter(([key]) => !removed.has(Number(key.split('_')[0])))),
+      ...(state.video?.id === videoId ? { video: null, activeSegmentId: null, activePosition: 0, retryingSegmentId: null, isTutorOpen: false } : {}),
+    }));
+  },
   reset: () => {
     set({
       video: null,
@@ -312,6 +351,11 @@ export const useStudyStore = create<StudyState>((set, get) => ({
       showRecordingWarning: false,
       isSidebarOpen: false,
       activeStep: 'dictate',
+      retryingSegmentId: null,
+      discardRecordingRequested: 0,
     });
   },
+}), {
+  name: 'fluenttube_study_drafts',
+  partialize: state => ({ drafts: state.drafts }),
 }));

@@ -12,3 +12,42 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
+
+@layer base {
+  :focus-visible { outline: 2px solid var(--color-accent); outline-offset: 4px; }
+  button, a, input, select, textarea { -webkit-tap-highlight-color: transparent; }
+  button { touch-action: manipulation; }
+  #main-content button { min-height: 36px; }
+  button:disabled { cursor: not-allowed; }
+  ::selection { background: #7de0c733; color: #fff; }
+  html { color-scheme: dark; }
+}
+
+@media (pointer: coarse) {
+  #main-content button { min-height: 44px; }
+}
+
+@layer components {
+  .library-shell { @apply max-w-7xl mx-auto px-5 sm:px-8 lg:px-10; }
+  .brand-mark { @apply w-11 h-11 rounded-2xl bg-accent text-background flex items-center justify-center; }
+  .primary-button { @apply inline-flex items-center justify-center gap-2 rounded-xl bg-accent text-background px-4 py-3 text-sm font-semibold transition hover:bg-accent-hover disabled:opacity-50; }
+  .secondary-button { @apply flex items-center justify-center gap-2 rounded-xl bg-surface-raised border border-border px-4 py-3 text-sm font-medium transition hover:border-accent; }
+  .quiet-button { @apply inline-flex items-center gap-2 text-sm text-text-secondary p-3 rounded-xl transition hover:bg-surface-raised hover:text-white; }
+  .eyebrow { @apply flex items-center gap-2 text-[10px] font-semibold tracking-[0.16em] text-accent; }
+  .library-hero { @apply relative grid md:grid-cols-[1.2fr_1fr] gap-8 md:gap-12 bg-surface border border-border-subtle rounded-3xl p-6 sm:p-10 overflow-hidden; background-image: radial-gradient(ellipse at 60% 0%, #7de0c70a, transparent 65%); }
+  .hero-guide { @apply relative md:border-l md:border-border-subtle md:pl-10 py-1; }
+  .guide-icon { @apply shrink-0 w-10 h-10 flex items-center justify-center rounded-xl border border-border-subtle text-accent bg-background/50; }
+  .search-input { @apply w-full min-h-11 bg-surface border border-border rounded-xl py-3 pl-10 pr-3 text-xs text-text-primary placeholder:text-text-secondary focus:outline-none focus:ring-2 focus:ring-accent/40; }
+  select.search-input { @apply pl-3; }
+  .filter-chip { @apply text-xs font-medium px-4 py-2.5 rounded-full border border-transparent text-text-secondary transition hover:bg-surface-raised hover:text-white; }
+  .filter-chip-active { @apply bg-accent/10 border-accent/30 text-accent; }
+  .empty-panel { @apply bg-surface border border-dashed border-border rounded-2xl px-6 py-12 text-center text-sm; }
+  .video-card { @apply bg-surface border border-border-subtle hover:border-accent/40 rounded-2xl overflow-hidden flex flex-col transition duration-200; }
+  .video-action { @apply w-full mt-5 flex items-center gap-2 py-3 border-t border-border-subtle text-sm font-semibold text-text-primary transition hover:text-accent; }
+  .study-step { @apply flex-1 flex items-center justify-center gap-1 sm:gap-2 px-2 sm:px-3 py-3 rounded-xl text-xs sm:text-sm whitespace-nowrap font-medium text-text-secondary transition hover:bg-surface-raised; }
+  .study-step[aria-selected="true"] { @apply bg-accent text-background; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; scroll-behavior: auto !important; }
+}

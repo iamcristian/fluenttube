@@ -4,6 +4,7 @@ import uuid
 from typing import Optional
 from fastapi import APIRouter, Depends, File, Form, Query, UploadFile
 from fastapi.responses import JSONResponse
+from starlette.concurrency import run_in_threadpool
 from sqlmodel import Session, col, func, select
 from backend.app.database import get_session
 from backend.app.errors import AppException
@@ -68,6 +69,23 @@ async def evaluate_shadowing(
         select(Job).where(Job.client_request_id == client_req_id)
     ).first()
     if existing_job:
+        if existing_job.kind != "shadowing":
+            raise AppException(
+                code="IDEMPOTENCY_CONFLICT",
+                message=f"Request ID '{client_req_id}' was previously used for a '{existing_job.kind}' job, not shadowing.",
+                status_code=409,
+            )
+        try:
+            job_payload = json.loads(existing_job.payload_json or "{}")
+            if job_payload.get("segment_id") != segment_id:
+                raise AppException(
+                    code="IDEMPOTENCY_CONFLICT",
+                    message=f"Request ID '{client_req_id}' was previously used for segment {job_payload.get('segment_id')}, not segment {segment_id}.",
+                    status_code=409,
+                )
+        except (json.JSONDecodeError, TypeError):
+            pass
+
         status_code = 200 if existing_job.status in ("succeeded", "failed") else 202
         return JSONResponse(
             status_code=status_code,
@@ -82,7 +100,7 @@ async def evaluate_shadowing(
 
     try:
         raw_path = await stream_and_validate_upload(audio_file, job_uuid)
-        duration = convert_to_pcm16k_mono(raw_path, wav_path)
+        duration = await run_in_threadpool(convert_to_pcm16k_mono, raw_path, wav_path)
     except Exception:
         safe_cleanup(raw_path, wav_path)
         raise

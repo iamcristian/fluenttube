@@ -45,7 +45,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ onBackToLibrary }) =
   });
 
   return (
-    <div className="min-h-screen bg-[#0B0F17] text-slate-100 flex flex-col">
+    <div className="min-h-screen bg-background text-slate-100 flex flex-col">
       {/* Top Header */}
       <header className="border-b border-border bg-surface sticky top-0 z-30 w-full">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
@@ -76,107 +76,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ onBackToLibrary }) =
       </header>
 
       {/* Main Settings Content */}
-      <main className="flex-1 max-w-5xl w-full mx-auto p-4 sm:p-6 space-y-6">
-        {/* Section 1: System Health & Hardware Diagnostics */}
-        <section aria-labelledby="diagnostics-heading" className="space-y-3">
-          <div className="flex items-center space-x-2">
-            <Server className="w-4 h-4 text-accent" />
-            <h2 id="diagnostics-heading" className="text-xs font-bold uppercase tracking-wider text-text-secondary">
-              Local System Diagnostics & Engine Status
-            </h2>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
-            {/* Backend Server */}
-            <div className="p-4 rounded-panel bg-surface border border-border flex flex-col justify-between space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="text-xs text-text-secondary font-medium">Backend Server</span>
-                <Server className="w-4 h-4 text-slate-400" />
-              </div>
-              <div className="flex items-center space-x-2">
-                <span
-                  className={`w-2 h-2 rounded-full ${
-                    health?.status === 'ok' ? 'bg-emerald-400' : 'bg-red-400'
-                  }`}
-                />
-                <span className="text-sm font-bold text-white capitalize">
-                  {isHealthLoading ? 'Checking...' : health?.status || 'Offline'}
-                </span>
-              </div>
-              <span className="text-[11px] text-text-secondary">127.0.0.1:8000</span>
-            </div>
-
-            {/* Database */}
-            <div className="p-4 rounded-panel bg-surface border border-border flex flex-col justify-between space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="text-xs text-text-secondary font-medium">SQLite Database</span>
-                <Database className="w-4 h-4 text-slate-400" />
-              </div>
-              <div className="flex items-center space-x-2">
-                <span
-                  className={`w-2 h-2 rounded-full ${
-                    health?.database === 'ok' ? 'bg-emerald-400' : 'bg-red-400'
-                  }`}
-                />
-                <span className="text-sm font-bold text-white capitalize">
-                  {isHealthLoading ? 'Checking...' : health?.database || 'Unreachable'}
-                </span>
-              </div>
-              <span className="text-[11px] text-text-secondary">WAL mode enabled</span>
-            </div>
-
-            {/* ASR Speech Engine */}
-            <div className="p-4 rounded-panel bg-surface border border-border flex flex-col justify-between space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="text-xs text-text-secondary font-medium">Speech ASR Engine</span>
-                <Mic className="w-4 h-4 text-slate-400" />
-              </div>
-              <div className="flex items-center space-x-2">
-                <span
-                  className={`w-2 h-2 rounded-full ${
-                    health?.speech.state === 'ready'
-                      ? 'bg-emerald-400'
-                      : health?.speech.state === 'unloaded'
-                      ? 'bg-blue-400'
-                      : 'bg-amber-400'
-                  }`}
-                />
-                <span className="text-sm font-bold text-white capitalize">
-                  {health?.speech.state || 'Unloaded'}
-                </span>
-              </div>
-              <span className="text-[11px] text-text-secondary font-mono truncate">
-                {health?.speech.gpu_name
-                  ? `${health.speech.gpu_name} (CUDA)`
-                  : health?.speech.device
-                  ? `${health.speech.device.toUpperCase()}`
-                  : 'Lazy-loaded on first speech'}
-              </span>
-            </div>
-
-            {/* Contextual Tutor */}
-            <div className="p-4 rounded-panel bg-surface border border-border flex flex-col justify-between space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="text-xs text-text-secondary font-medium">AI Grammar Tutor</span>
-                <Sparkles className="w-4 h-4 text-slate-400" />
-              </div>
-              <div className="flex items-center space-x-2">
-                <span
-                  className={`w-2 h-2 rounded-full ${
-                    health?.tutor.enabled ? 'bg-emerald-400' : 'bg-slate-500'
-                  }`}
-                />
-                <span className="text-sm font-bold text-white">
-                  {health?.tutor.enabled ? 'Enabled' : 'Disabled'}
-                </span>
-              </div>
-              <span className="text-[11px] text-text-secondary font-mono">
-                {health?.tutor.provider ? `${health.tutor.provider} (cloud)` : 'Unconfigured'}
-              </span>
-            </div>
-          </div>
-        </section>
-
+      <main id="main-content" className="flex-1 max-w-5xl w-full mx-auto p-4 sm:p-6 space-y-6">
         {/* Section 2: Local User Preferences */}
         <section aria-labelledby="preferences-heading" className="p-6 rounded-panel bg-surface border border-border space-y-5">
           <div className="flex items-center space-x-2 border-b border-border/80 pb-3">
@@ -286,6 +186,106 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ onBackToLibrary }) =
           </div>
         </section>
 
+        {/* Section 1: System Health & Hardware Diagnostics */}
+        <section aria-labelledby="diagnostics-heading" className="space-y-3">
+          <div className="flex items-center space-x-2">
+            <Server className="w-4 h-4 text-accent" />
+            <h2 id="diagnostics-heading" className="text-xs font-bold uppercase tracking-wider text-text-secondary">
+              Local System Diagnostics & Engine Status
+            </h2>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+            {/* Backend Server */}
+            <div className="p-4 rounded-panel bg-surface border border-border flex flex-col justify-between space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-text-secondary font-medium">Backend Server</span>
+                <Server className="w-4 h-4 text-slate-400" />
+              </div>
+              <div className="flex items-center space-x-2">
+                <span
+                  className={`w-2 h-2 rounded-full ${
+                    health?.status === 'ok' ? 'bg-emerald-400' : 'bg-red-400'
+                  }`}
+                />
+                <span className="text-sm font-bold text-white capitalize">
+                  {isHealthLoading ? 'Checking...' : health?.status || 'Offline'}
+                </span>
+              </div>
+              <span className="text-[11px] text-text-secondary">127.0.0.1:8000</span>
+            </div>
+
+            {/* Database */}
+            <div className="p-4 rounded-panel bg-surface border border-border flex flex-col justify-between space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-text-secondary font-medium">SQLite Database</span>
+                <Database className="w-4 h-4 text-slate-400" />
+              </div>
+              <div className="flex items-center space-x-2">
+                <span
+                  className={`w-2 h-2 rounded-full ${
+                    health?.database === 'ok' ? 'bg-emerald-400' : 'bg-red-400'
+                  }`}
+                />
+                <span className="text-sm font-bold text-white capitalize">
+                  {isHealthLoading ? 'Checking...' : health?.database || 'Unreachable'}
+                </span>
+              </div>
+              <span className="text-[11px] text-text-secondary">WAL mode enabled</span>
+            </div>
+
+            {/* ASR Speech Engine */}
+            <div className="p-4 rounded-panel bg-surface border border-border flex flex-col justify-between space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-text-secondary font-medium">Speech ASR Engine</span>
+                <Mic className="w-4 h-4 text-slate-400" />
+              </div>
+              <div className="flex items-center space-x-2">
+                <span
+                  className={`w-2 h-2 rounded-full ${
+                    health?.speech.state === 'ready'
+                      ? 'bg-emerald-400'
+                      : health?.speech.state === 'unloaded'
+                      ? 'bg-blue-400'
+                      : 'bg-amber-400'
+                  }`}
+                />
+                <span className="text-sm font-bold text-white capitalize">
+                  {health?.speech.state || 'Unloaded'}
+                </span>
+              </div>
+              <span className="text-[11px] text-text-secondary font-mono truncate">
+                {health?.speech.gpu_name
+                  ? `${health.speech.gpu_name} (CUDA)`
+                  : health?.speech.device
+                  ? `${health.speech.device.toUpperCase()}`
+                  : 'Lazy-loaded on first speech'}
+              </span>
+            </div>
+
+            {/* Contextual Tutor */}
+            <div className="p-4 rounded-panel bg-surface border border-border flex flex-col justify-between space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-text-secondary font-medium">AI Grammar Tutor</span>
+                <Sparkles className="w-4 h-4 text-slate-400" />
+              </div>
+              <div className="flex items-center space-x-2">
+                <span
+                  className={`w-2 h-2 rounded-full ${
+                    health?.tutor.enabled ? 'bg-emerald-400' : 'bg-slate-500'
+                  }`}
+                />
+                <span className="text-sm font-bold text-white">
+                  {health?.tutor.enabled ? 'Enabled' : 'Disabled'}
+                </span>
+              </div>
+              <span className="text-[11px] text-text-secondary font-mono">
+                {health?.tutor.provider ? `${health.tutor.provider} (cloud)` : 'Unconfigured'}
+              </span>
+            </div>
+          </div>
+        </section>
+
         {/* Section 3: AI Tutor Setup Instructions (Section 8.2 Security Guard: No frontend API key input!) */}
         <section aria-labelledby="tutor-setup-heading" className="p-6 rounded-panel bg-surface border border-border space-y-4">
           <div className="flex items-center space-x-2 border-b border-border/80 pb-3">
@@ -315,6 +315,19 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ onBackToLibrary }) =
               </p>
             </div>
           </div>
+        </section>
+
+        <section aria-labelledby="youtube-import-heading" className="p-6 rounded-panel bg-surface border border-border space-y-4">
+          <h2 id="youtube-import-heading" className="text-base font-semibold">YouTube import help</h2>
+          <p className="text-sm text-text-secondary leading-relaxed">YouTube sometimes limits automatic imports or asks for verification. Your link can be correct and still be blocked. Wait before retrying; opening a video in your browser does not automatically sign the app in.</p>
+          <details className="text-sm text-text-secondary space-y-3">
+            <summary className="cursor-pointer text-accent">Optional: use a local YouTube session</summary>
+            <p>If you choose to use your session, follow the official export instructions and keep the cookies file private on this computer. The app never reads your browser cookies automatically.</p>
+            <p>Add the file path to <code>backend/.env</code>, then restart the backend:</p>
+            <pre className="bg-background rounded-xl p-4 overflow-x-auto text-xs"><code>YOUTUBE_COOKIES_FILE=./data/youtube-cookies.txt</code></pre>
+            <p>Using an account for automated downloads can risk account restrictions. Anonymous imports remain the default. Do not paste cookies into this app or chat.</p>
+            <a href="https://github.com/yt-dlp/yt-dlp/wiki/Extractors#exporting-youtube-cookies" target="_blank" rel="noopener noreferrer" className="inline-block underline text-accent">Official YouTube session export instructions</a>
+          </details>
         </section>
 
         {/* Section 4: Privacy & Offline Boundaries */}

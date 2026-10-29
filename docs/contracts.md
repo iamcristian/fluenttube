@@ -1,6 +1,6 @@
 # FluentTube AI — API Contracts & Schema Reference
 
-Specification Reference: Section 5 (`fluenttube_ai_especificacion_ejecutable_gemini.md`)
+Specification Reference: Section 5 (`specification.md`)
 
 ---
 

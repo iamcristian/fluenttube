@@ -1,4 +1,5 @@
 import io
+import json
 import wave
 import uuid
 from datetime import datetime, timezone
@@ -385,3 +386,47 @@ def test_list_shadowing_attempts_empty_and_seeded(shadowing_db):
     assert data2["total"] == 1
     assert data2["items"][0]["recognized_text"] == "Second completed sentence."
     assert data2["items"][0]["word_match_score"] == 95.0
+
+def test_safe_cleanup_removes_both_path_and_string_paths(tmp_path: Path):
+    from backend.app.services.audio_service import safe_cleanup
+
+    file_as_path = tmp_path / "test_path.wav"
+    file_as_path.write_bytes(b"dummy")
+
+    file_as_str = tmp_path / "test_str.wav"
+    file_as_str.write_bytes(b"dummy")
+
+    assert file_as_path.exists()
+    assert file_as_str.exists()
+
+    safe_cleanup(file_as_path, str(file_as_str), None)
+
+    assert not file_as_path.exists()
+    assert not file_as_str.exists()
+
+def test_shadowing_idempotency_conflict_on_mismatched_segment_or_kind(shadowing_db):
+    engine, _ = shadowing_db
+    _, segments = seed_test_video_and_segments(engine)
+    client = TestClient(app)
+
+    # Seed an existing job with client_request_id "idemp_test_key" for segment 1
+    with Session(engine) as session:
+        existing = Job(
+            client_request_id="idemp_test_key",
+            request_hash="some_hash",
+            kind="shadowing",
+            status="queued",
+            payload_json=json.dumps({"segment_id": segments[1].id, "duration_seconds": 1.5}),
+        )
+        session.add(existing)
+        session.commit()
+
+    # Attempt to reuse the same client_request_id for segment 2
+    audio_data = create_synthetic_wav(1.0)
+    resp = client.post(
+        "/api/shadowing/evaluate",
+        data={"segment_id": segments[2].id, "client_request_id": "idemp_test_key"},
+        files={"audio_file": ("test.wav", audio_data, "audio/wav")},
+    )
+    assert resp.status_code == 409
+    assert resp.json()["error"]["code"] == "IDEMPOTENCY_CONFLICT"

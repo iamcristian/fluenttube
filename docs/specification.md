@@ -1307,7 +1307,7 @@ Guidance scoring (does not replace gate criteria): Functionality 35, Contracts/P
 
 ```text
 You are developing FluentTube AI following the specification in
-fluenttube_ai_especificacion_ejecutable_gemini.md.
+specification.md.
 
 Your role is the implementer. GPT-6 Astra acts as the evaluator for deliverables.
 Do not assume a task is accepted simply because you finished writing code.

@@ -1,5 +1,5 @@
 export type SpeechState = 'unloaded' | 'loading' | 'ready' | 'unavailable';
-export type JobKind = 'ingest' | 'shadowing';
+export type JobKind = 'ingest' | 'local_ingest' | 'shadowing';
 export type JobStatus = 'queued' | 'running' | 'succeeded' | 'failed';
 
 export interface SpeechHealthDTO {
@@ -55,6 +55,7 @@ export interface SegmentDTO {
 export interface VideoSummaryDTO {
   id: number;
   youtube_id: string;
+  source_type?: 'youtube' | 'local';
   title: string;
   channel?: string | null;
   duration_seconds: number;
@@ -271,4 +272,34 @@ export interface DictionaryEntryDTO {
   example_en: string | null;
   audio_url: string;
   cached: boolean;
+}
+
+export interface VocabularyExampleItem {
+  en: string;
+  translation: string;
+}
+
+export interface VocabularyExplainRequestDTO {
+  segment_id: number;
+  term: string;
+  selection_start?: number | null;
+  selection_end?: number | null;
+  explanation_language?: string;
+}
+
+export interface VocabularyExplainResponseDTO {
+  term: string;
+  lemma?: string | null;
+  part_of_speech?: string | null;
+  meaning_en: string;
+  translation: string;
+  contextual_meaning: string;
+  usage_notes: string[];
+  examples: VocabularyExampleItem[];
+  collocations: string[];
+  other_senses: string[];
+  warnings: string[];
+  cached: boolean;
+  provider: string;
+  model: string;
 }

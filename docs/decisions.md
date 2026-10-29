@@ -1,6 +1,6 @@
 # FluentTube AI — Architecture and Engineering Decisions
 
-This document records architectural, technical, and environment decisions in accordance with Section 0, Section 3, Section 13, and Section 14 of `fluenttube_ai_especificacion_ejecutable_gemini.md`.
+This document records architectural, technical, and environment decisions in accordance with Section 0, Section 3, Section 13, and Section 14 of `specification.md`.
 
 ---
 
@@ -17,7 +17,7 @@ This document records architectural, technical, and environment decisions in acc
 - **Date**: 2026-10-23
 - **Status**: Accepted
 - **Affected Sections**: Section 3.1, Section 13.2, Section 14 (T00, T01, T16)
-- **Observed Fact**: Host installed Python 3.11.9 (`C:\Users\crisa\AppData\Local\Python\pythoncore-3.11-64\python.exe`) via `py install 3.11`.
+- **Observed Fact**: Host installed Python 3.11.9 (`C:\Users\YOUR_USER\AppData\Local\Python\pythoncore-3.11-64\python.exe`) via `py install 3.11`.
 - **Decision**: Dedicated virtual environment `backend/.venv` targeting Python 3.11.9.
 - **Rationale**: Guarantees compatibility with precompiled wheels for `ctranslate2` and `faster-whisper`.
 

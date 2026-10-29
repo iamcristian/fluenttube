@@ -110,9 +110,9 @@ def handle_shadowing_job(
                     warning_codes_json=json.dumps(assessment["warning_codes"]),
                 )
                 session.add(attempt)
-                session.commit()
-                session.refresh(attempt)
+                session.flush()
                 attempt_id = attempt.id
+                session.commit()
 
         update_progress("completed", 1.0)
 

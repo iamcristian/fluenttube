@@ -34,6 +34,13 @@ class Video(SQLModel, table=True):
         },
     )
 
+class LocalVideoMedia(SQLModel, table=True):
+    """Optional local source, without changing existing Video rows or columns."""
+    __tablename__ = "local_video_media"
+    video_id: int = Field(foreign_key="video.id", primary_key=True)
+    file_relative_path: str = Field(unique=True)
+
+
 class Segment(SQLModel, table=True):
     __tablename__ = "segment"
     __table_args__ = (
@@ -154,6 +161,30 @@ class TutorCache(SQLModel, table=True):
     model: str = Field(nullable=False)
     prompt_version: str = Field(nullable=False)
     context_hash: str = Field(index=True, nullable=False)
+    response_json: str = Field(nullable=False)
+    created_at: datetime = Field(default_factory=utc_now, nullable=False)
+
+class VocabularyCache(SQLModel, table=True):
+    __tablename__ = "vocabularycache"
+    __table_args__ = (
+        UniqueConstraint(
+            "segment_id",
+            "term",
+            "language",
+            "provider",
+            "model",
+            "prompt_version",
+            name="uq_vocabulary_cache",
+        ),
+    )
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    segment_id: int = Field(foreign_key="segment.id", index=True, nullable=False)
+    term: str = Field(index=True, nullable=False)
+    language: str = Field(nullable=False)
+    provider: str = Field(nullable=False)
+    model: str = Field(nullable=False)
+    prompt_version: str = Field(nullable=False)
     response_json: str = Field(nullable=False)
     created_at: datetime = Field(default_factory=utc_now, nullable=False)
 

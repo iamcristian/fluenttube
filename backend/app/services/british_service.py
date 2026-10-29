@@ -21,6 +21,65 @@ TTS_CACHE_DIR.mkdir(parents=True, exist_ok=True)
 
 DEFAULT_BRITISH_VOICE = "en-GB-RyanNeural"  # Professional natural UK voice
 
+try:
+    import eng_to_ipa
+except ImportError:
+    eng_to_ipa = None
+
+ARPABET_TO_IPA = {
+    "AA": "ɑː", "AA0": "ɑː", "AA1": "ɑː", "AA2": "ɑː",
+    "AE": "æ", "AE0": "æ", "AE1": "æ", "AE2": "æ",
+    "AH": "ʌ", "AH0": "ə", "AH1": "ʌ", "AH2": "ʌ",
+    "AO": "ɔː", "AO0": "ɔː", "AO1": "ɔː", "AO2": "ɔː",
+    "AW": "aʊ", "AW0": "aʊ", "AW1": "aʊ", "AW2": "aʊ",
+    "AY": "aɪ", "AY0": "aɪ", "AY1": "aɪ", "AY2": "aɪ",
+    "EH": "e", "EH0": "e", "EH1": "e", "EH2": "e",
+    "ER": "ɜː", "ER0": "ə", "ER1": "ɜː", "ER2": "ɜː",
+    "EY": "eɪ", "EY0": "eɪ", "EY1": "eɪ", "EY2": "eɪ",
+    "IH": "ɪ", "IH0": "ɪ", "IH1": "ɪ", "IH2": "ɪ",
+    "IY": "iː", "IY0": "i", "IY1": "iː", "IY2": "iː",
+    "OW": "əʊ", "OW0": "əʊ", "OW1": "əʊ", "OW2": "əʊ",
+    "OY": "ɔɪ", "OY0": "ɔɪ", "OY1": "ɔɪ", "OY2": "ɔɪ",
+    "UH": "ʊ", "UH0": "ʊ", "UH1": "ʊ", "UH2": "ʊ",
+    "UW": "uː", "UW0": "u", "UW1": "uː", "UW2": "uː",
+    "B": "b", "CH": "tʃ", "D": "d", "DH": "ð", "F": "f",
+    "G": "ɡ", "HH": "h", "JH": "dʒ", "K": "k", "L": "l",
+    "M": "m", "N": "n", "NG": "ŋ", "P": "p", "R": "r",
+    "S": "s", "SH": "ʃ", "T": "t", "TH": "θ", "V": "v",
+    "W": "w", "Y": "j", "Z": "z", "ZH": "ʒ",
+}
+
+
+def format_ipa(word: str, raw_arpa: Optional[str] = None) -> Optional[str]:
+    """
+    Derives genuine British IPA phonetic transcription from eng_to_ipa or ARPABET.
+    Never outputs raw ARPABET tokens like '/p r ih1 t iy0/'.
+    """
+    if eng_to_ipa is not None:
+        try:
+            converted = eng_to_ipa.convert(word)
+            if converted and not converted.endswith("*"):
+                return f"/{converted}/"
+        except Exception:
+            pass
+
+    if raw_arpa:
+        tokens = raw_arpa.strip().split()
+        ipa_tokens = []
+        for t in tokens:
+            clean = t.upper()
+            if "1" in clean:
+                sym = ARPABET_TO_IPA.get(clean, clean.lower().replace("1", ""))
+                ipa_tokens.append("ˈ" + sym)
+            elif "2" in clean:
+                sym = ARPABET_TO_IPA.get(clean, clean.lower().replace("2", ""))
+                ipa_tokens.append("ˌ" + sym)
+            else:
+                ipa_tokens.append(ARPABET_TO_IPA.get(clean, clean.lower()))
+        if ipa_tokens:
+            return f"/{''.join(ipa_tokens)}/"
+    return None
+
 
 def sanitize_filename(text: str) -> str:
     """Generate a clean filesystem-safe name for caching synthesized audio."""
@@ -119,6 +178,15 @@ async def lookup_word(
     ).first()
 
     if cached:
+        # Auto-heal legacy cache entries with raw ARPABET (spaces, digits)
+        if cached.phonetic_uk and (re.search(r"\d", cached.phonetic_uk) or " " in cached.phonetic_uk):
+            fixed_ipa = format_ipa(cached.word, cached.phonetic_uk.replace("/", ""))
+            if fixed_ipa:
+                cached.phonetic_uk = fixed_ipa
+                session.add(cached)
+                session.commit()
+                session.refresh(cached)
+
         return DictionaryEntryDTO(
             word=cached.word,
             phonetic_uk=cached.phonetic_uk,
@@ -160,15 +228,15 @@ async def lookup_word(
                 definition_en = defs[0].get("definition")
                 example_en = defs[0].get("example")
 
-    # 3. If Free Dictionary didn't provide definitions, try Datamuse fallback
-    if not definition_en:
+    # 3. If Free Dictionary didn't provide definitions or phonetics, try Datamuse fallback
+    if not definition_en or not phonetic_uk:
         dm_data = await fetch_datamuse(normalized_word)
         if dm_data:
             # Datamuse tags can give POS and pronunciation
             tags = dm_data.get("tags", [])
             for t in tags:
                 if t.startswith("pron:") and not phonetic_uk:
-                    phonetic_uk = "/" + t[5:].strip().lower() + "/"
+                    phonetic_uk = format_ipa(normalized_word, t[5:].strip())
                 elif t in ("v", "verb") and not part_of_speech:
                     part_of_speech = "verb"
                 elif t in ("n", "noun") and not part_of_speech:
@@ -179,7 +247,7 @@ async def lookup_word(
                     part_of_speech = "adverb"
 
             defs = dm_data.get("defs", [])
-            if defs:
+            if defs and not definition_en:
                 first_def = defs[0]
                 # Defs are formatted like: "v\tTo form a mental image..."
                 if "\t" in first_def:
@@ -205,7 +273,7 @@ async def lookup_word(
     if not definition_en:
         definition_en = f"Term: '{normalized_word}'"
     if not phonetic_uk:
-        phonetic_uk = f"/{normalized_word}/"
+        phonetic_uk = format_ipa(normalized_word) or f"/{normalized_word}/"
 
     # Save to SQLite DictionaryCache
     new_entry = DictionaryCache(

@@ -12,7 +12,7 @@ All benchmarks were conducted on the local physical host workstation:
 | Component | Hardware / Software Profile |
 | :--- | :--- |
 | **Operating System** | Windows 11 (build 26100), 64-bit |
-| **Python Runtime** | Python 3.11.9 (`C:\Users\crisa\Workspace\system-design\english-learning\backend\.venv\Scripts\python.exe`) |
+| **Python Runtime** | Python 3.11.9 (`C:\Users\YOUR_USER\Workspace\system-design\english-learning\backend\.venv\Scripts\python.exe`) |
 | **FFmpeg Engine** | FFmpeg 9.0.2 full build (`www.gyan.dev`) with ffprobe |
 | **Inference Framework** | CTranslate2 v4.8.3 |
 | **Host GPU** | **NVIDIA GeForce RTX 3050 Laptop GPU** |

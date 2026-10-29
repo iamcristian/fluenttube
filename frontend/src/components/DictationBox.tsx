@@ -11,16 +11,19 @@ import {
   Trash2,
   Mic,
   MicOff,
+  BookOpen,
 } from 'lucide-react';
 import { SegmentDTO } from '../api/types';
 import { apiClient } from '../api/client';
 import { useStudyStore } from '../stores/useStudyStore';
 import { normalizeText, DisplayToken } from '../utils/aligner';
 import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts';
+import { useSettingsStore } from '../stores/useSettingsStore';
 
 export interface DictationBoxProps {
+  isActive?: boolean;
   segment: SegmentDTO;
-  onNext?: () => void;
+  onNext?: (autoPlay?: boolean) => void;
   isLastSegment?: boolean;
   onSelectWord?: (word: string) => void;
   onToggleShadowing?: () => void;
@@ -28,6 +31,7 @@ export interface DictationBoxProps {
 }
 
 export const DictationBox: React.FC<DictationBoxProps> = ({
+  isActive = true,
   segment,
   onNext,
   isLastSegment = false,
@@ -35,6 +39,8 @@ export const DictationBox: React.FC<DictationBoxProps> = ({
   onToggleShadowing,
   isShadowingRecording = false,
 }) => {
+  const autoAdvance = useSettingsStore(s => s.autoAdvance);
+  const setAutoAdvance = useSettingsStore(s => s.setAutoAdvance);
   const {
     drafts,
     setDraft,
@@ -43,7 +49,10 @@ export const DictationBox: React.FC<DictationBoxProps> = ({
     results,
     setResult,
     staleDiffs,
+    setStaleDiff,
     updateSegment,
+    retryingSegmentId,
+    setRetryingSegmentId,
   } = useStudyStore();
 
   const [isLoadingSession, setIsLoadingSession] = useState(false);
@@ -53,47 +62,80 @@ export const DictationBox: React.FC<DictationBoxProps> = ({
   const [checkError, setCheckError] = useState<string | null>(null);
   const [showHelpModal, setShowHelpModal] = useState(false);
   const [hintMessage, setHintMessage] = useState<string | null>(null);
+  const [selectedText, setSelectedText] = useState<string>('');
 
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const lastTabTimeRef = useRef<number>(0);
-  const sessionInitiatedRef = useRef<number | null>(null);
   const autoSubmittedRef = useRef<boolean>(false);
+  const currentSubmissionIdRef = useRef<string | null>(null);
+  const advanceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const activeSegmentIdRef = useRef<number>(segment.id);
+  activeSegmentIdRef.current = segment.id;
+  const isActiveRef = useRef(isActive);
+  isActiveRef.current = isActive;
+  const inFlightSessionRef = useRef<{ segmentId: number; promise: Promise<import('../api/types').SessionResponseDTO> } | null>(null);
 
   const draft = drafts[segment.id] ?? '';
   const session = sessions[segment.id] ?? null;
   const result = results[segment.id] ?? null;
   const isStale = staleDiffs[segment.id] ?? false;
 
-  // 1. Initialize or load practice session for this segment (Fix Bug F-01: no self-canceling loop)
+  // Clear pending advance timer and draft selection when switching segments or unmounting
   useEffect(() => {
-    let isMounted = true;
-    if (!session && sessionInitiatedRef.current !== segment.id) {
-      sessionInitiatedRef.current = segment.id;
+    setSelectedText('');
+    return () => {
+      if (advanceTimerRef.current) {
+        clearTimeout(advanceTimerRef.current);
+        advanceTimerRef.current = null;
+      }
+    };
+  }, [segment.id, isActive, autoAdvance]);
+
+  // 1. Stable, deduplicated session provider (Fixes Bug F-01 & StrictMode race conditions)
+  const ensureSession = useCallback(
+    async (targetSegmentId: number): Promise<import('../api/types').SessionResponseDTO> => {
+      const existing = sessions[targetSegmentId];
+      if (existing) return existing;
+
+      if (inFlightSessionRef.current && inFlightSessionRef.current.segmentId === targetSegmentId) {
+        return inFlightSessionRef.current.promise;
+      }
+
       setIsLoadingSession(true);
-      apiClient
-        .createSession(segment.id)
+      const p = apiClient
+        .createSession(targetSegmentId)
         .then((sess) => {
-          if (isMounted) {
-            setSession(segment.id, sess);
-          }
-        })
-        .catch((err) => {
-          console.error('Failed to create practice session:', err);
+          setSession(targetSegmentId, sess);
+          return sess;
         })
         .finally(() => {
-          if (isMounted) {
+          if (inFlightSessionRef.current?.segmentId === targetSegmentId) {
+            inFlightSessionRef.current = null;
+          }
+          if (activeSegmentIdRef.current === targetSegmentId) {
             setIsLoadingSession(false);
           }
         });
-    }
-    return () => {
-      isMounted = false;
-    };
-  }, [segment.id, session, setSession]);
 
-  // Reset auto-submit tracker on segment change
+      inFlightSessionRef.current = { segmentId: targetSegmentId, promise: p };
+      return p;
+    },
+    [sessions, setSession]
+  );
+
+  useEffect(() => {
+    if (!session && isActive) {
+      ensureSession(segment.id).catch((err) => {
+        console.error('Failed to create practice session:', err);
+      });
+    }
+  }, [segment.id, session, ensureSession, isActive]);
+
+  // Reset auto-submit tracker and submission ID on segment change
   useEffect(() => {
     autoSubmittedRef.current = false;
+    currentSubmissionIdRef.current = null;
   }, [segment.id]);
 
   // 2. Extract display tokens from target segment text
@@ -157,11 +199,23 @@ export const DictationBox: React.FC<DictationBoxProps> = ({
     return combined;
   }, [serverMatchedDisplayTokens, liveMatchedIndices]);
 
+  const isRetrying = retryingSegmentId === segment.id;
   const isCompleted = segment.completed || (result?.completed ?? false);
-  const isRevealed = segment.revealed || (session?.answer_revealed ?? false);
+  const isRevealed = session?.answer_revealed ?? false;
+
+  // Answer visibility policy (Fix Bugs F-03 & F-04):
+  // Target words are concealed during active practice and hidden retries.
+  // They are only revealed if:
+  // 1. Session is explicitly revealed (session.answer_revealed === true)
+  // 2. Or completed in this session/attempt (result?.is_exact === true)
+  // 3. Or viewing an already-completed/revealed sentence in review mode (not retrying).
+  const isAnswerVisible =
+    isRevealed ||
+    (result?.is_exact ?? false) ||
+    (!isRetrying && (segment.completed || segment.revealed));
 
   // 6. Check action
-  const handleCheck = useCallback(async (isAuto = false) => {
+  const handleCheck = useCallback(async (_isAuto = false) => {
     if (!draft.trim() || isChecking) return;
 
     setIsChecking(true);
@@ -169,29 +223,39 @@ export const DictationBox: React.FC<DictationBoxProps> = ({
     setHintMessage(null);
 
     try {
-      let activeSession = session;
-      if (!activeSession) {
-        activeSession = await apiClient.createSession(segment.id);
-        setSession(segment.id, activeSession);
+      const activeSession = session || await ensureSession(segment.id);
+      if (!currentSubmissionIdRef.current) {
+        currentSubmissionIdRef.current =
+          typeof crypto !== 'undefined' && crypto.randomUUID
+            ? crypto.randomUUID()
+            : `check_${Date.now()}`;
       }
 
       const checkRes = await apiClient.checkDictation(activeSession.id, {
         input_text: draft,
+        client_request_id: currentSubmissionIdRef.current,
       });
 
+      // Clear stable request ID on successful response so next draft gets fresh ID
+      currentSubmissionIdRef.current = null;
       setResult(segment.id, checkRes);
 
       if (checkRes.is_exact) {
+        setRetryingSegmentId(null);
         if (!activeSession.answer_revealed) {
           updateSegment(segment.id, {
             completed: true,
             shadowing_unlocked: true,
           });
         }
-        if (isAuto && onNext) {
-          setTimeout(() => {
-            onNext();
-          }, 700);
+        // Continuous dictation (F-02): automatically advance and play next segment after brief UX feedback (approx 600ms)
+        if (autoAdvance && isActiveRef.current && activeSegmentIdRef.current === segment.id && onNext && !isLastSegment && !isShadowingRecording) {
+          if (advanceTimerRef.current) {
+            clearTimeout(advanceTimerRef.current);
+          }
+          advanceTimerRef.current = setTimeout(() => {
+            onNext(true);
+          }, 600);
         }
       }
     } catch (err: unknown) {
@@ -200,7 +264,7 @@ export const DictationBox: React.FC<DictationBoxProps> = ({
     } finally {
       setIsChecking(false);
     }
-  }, [draft, isChecking, session, segment.id, setSession, setResult, updateSegment, onNext]);
+  }, [draft, isChecking, session, segment.id, ensureSession, setResult, updateSegment, setRetryingSegmentId, onNext, isLastSegment, isShadowingRecording, autoAdvance, isActive]);
 
   // 7. Auto-submit on 100% exact live match
   useEffect(() => {
@@ -208,34 +272,37 @@ export const DictationBox: React.FC<DictationBoxProps> = ({
       targetNorm.display_tokens.length > 0 &&
       liveMatchedIndices.size === targetNorm.display_tokens.length;
 
-    if (allMatched && !autoSubmittedRef.current && !isCompleted && !isRevealed) {
+    if (allMatched && !autoSubmittedRef.current && !isAnswerVisible) {
       autoSubmittedRef.current = true;
       handleCheck(true);
     }
-  }, [liveMatchedIndices.size, targetNorm.display_tokens.length, isCompleted, isRevealed, handleCheck]);
+  }, [liveMatchedIndices.size, targetNorm.display_tokens.length, isAnswerVisible, handleCheck]);
 
   // 8. Hint action: First-letter hint
   const handleHint = useCallback(async () => {
-    if (!session || isHinting || isCompleted || isRevealed) return;
-
-    const hintedSet = new Set(session.hinted_display_indices);
-    const candidate = targetNorm.display_tokens.find(
-      (dt) => !hintedSet.has(dt.index) && !matchedDisplayTokens.has(dt.index)
-    );
-
-    if (!candidate) {
-      setHintMessage('No more hints available for this sentence.');
-      setTimeout(() => setHintMessage(null), 3000);
-      return;
-    }
-
-    setIsHinting(true);
-    setHintMessage(null);
+    if (isHinting || isAnswerVisible) return;
 
     try {
-      const hintRes = await apiClient.getHint(session.id, candidate.index);
+      const activeSession = session || await ensureSession(segment.id);
+      if (!activeSession) return;
+
+      const hintedSet = new Set(activeSession.hinted_display_indices);
+      const candidate = targetNorm.display_tokens.find(
+        (dt) => !hintedSet.has(dt.index) && !matchedDisplayTokens.has(dt.index)
+      );
+
+      if (!candidate) {
+        setHintMessage('No more hints available for this sentence.');
+        setTimeout(() => setHintMessage(null), 3000);
+        return;
+      }
+
+      setIsHinting(true);
+      setHintMessage(null);
+
+      const hintRes = await apiClient.getHint(activeSession.id, candidate.index);
       setSession(segment.id, {
-        ...session,
+        ...activeSession,
         hinted_display_indices: hintRes.hinted_display_indices,
       });
     } catch (err: unknown) {
@@ -245,9 +312,9 @@ export const DictationBox: React.FC<DictationBoxProps> = ({
     }
   }, [
     session,
+    ensureSession,
     isHinting,
-    isCompleted,
-    isRevealed,
+    isAnswerVisible,
     targetNorm.display_tokens,
     matchedDisplayTokens,
     segment.id,
@@ -255,8 +322,8 @@ export const DictationBox: React.FC<DictationBoxProps> = ({
   ]);
 
   // Double-Tab hint action: fills in the next missing word
-  const handleDoubleTabHint = useCallback(() => {
-    if (isCompleted || isRevealed) return;
+  const handleDoubleTabHint = useCallback(async () => {
+    if (isAnswerVisible) return;
 
     const nextUnmatched = targetNorm.display_tokens.find(
       (dt) => !matchedDisplayTokens.has(dt.index)
@@ -267,24 +334,30 @@ export const DictationBox: React.FC<DictationBoxProps> = ({
     const newDraft = current ? `${current} ${nextUnmatched.text}` : nextUnmatched.text;
     setDraft(segment.id, newDraft);
 
-    if (session) {
-      apiClient.getHint(session.id, nextUnmatched.index).catch(() => {});
-    }
+    try {
+      const activeSession = session || await ensureSession(segment.id);
+      if (activeSession) {
+        apiClient.getHint(activeSession.id, nextUnmatched.index).catch(() => {});
+      }
+    } catch {}
+
     setHintMessage(`Pista: "${nextUnmatched.text}"`);
     setTimeout(() => setHintMessage(null), 2000);
-  }, [isCompleted, isRevealed, targetNorm.display_tokens, matchedDisplayTokens, draft, setDraft, segment.id, session]);
+  }, [isAnswerVisible, targetNorm.display_tokens, matchedDisplayTokens, draft, setDraft, segment.id, session, ensureSession]);
 
   // Reveal answer
   const handleReveal = useCallback(async () => {
-    if (!session || isRevealing || isCompleted || isRevealed) return;
+    if (isRevealing || isAnswerVisible) return;
 
     setIsRevealing(true);
     setCheckError(null);
 
     try {
-      const revRes = await apiClient.revealAnswer(session.id);
+      const activeSession = session || await ensureSession(segment.id);
+      const revRes = await apiClient.revealAnswer(activeSession.id);
+      setRetryingSegmentId(null);
       setSession(segment.id, {
-        ...session,
+        ...activeSession,
         answer_revealed: true,
       });
       updateSegment(segment.id, {
@@ -296,34 +369,38 @@ export const DictationBox: React.FC<DictationBoxProps> = ({
     } finally {
       setIsRevealing(false);
     }
-  }, [session, isRevealing, isCompleted, isRevealed, segment.id, setSession, updateSegment]);
+  }, [session, ensureSession, isRevealing, isAnswerVisible, segment.id, setSession, updateSegment, setRetryingSegmentId]);
 
-  // Try again action
+  // Try again action (conceals answers across all surfaces for fresh practice)
   const handleTryAgain = useCallback(async () => {
+    if (advanceTimerRef.current) {
+      clearTimeout(advanceTimerRef.current);
+      advanceTimerRef.current = null;
+    }
     setIsLoadingSession(true);
     setCheckError(null);
     setHintMessage(null);
     setDraft(segment.id, '');
     autoSubmittedRef.current = false;
+    currentSubmissionIdRef.current = null;
+    setRetryingSegmentId(segment.id);
 
     try {
       const newSess = await apiClient.createSession(segment.id);
       setSession(segment.id, newSess);
+      setResult(segment.id, null);
       textareaRef.current?.focus();
     } catch (err: unknown) {
       console.error('Failed to create new session:', err);
     } finally {
       setIsLoadingSession(false);
     }
-  }, [segment.id, setDraft, setSession]);
+  }, [segment.id, setDraft, setSession, setResult, setRetryingSegmentId]);
 
   // Keyboard shortcuts integration
   useKeyboardShortcuts({
-    onCheck: () => handleCheck(false),
+    enabled: isActive,
     onHint: handleHint,
-    onReveal: handleReveal,
-    onClear: () => setDraft(segment.id, ''),
-    onToggleHelp: () => setShowHelpModal((prev) => !prev),
     onClose: () => setShowHelpModal(false),
   });
 
@@ -335,7 +412,9 @@ export const DictationBox: React.FC<DictationBoxProps> = ({
         handleDoubleTabHint();
       }
       lastTabTimeRef.current = now;
-    } else if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+    } else if (e.key === 'Enter') {
+      if (e.nativeEvent.isComposing) return;
+      if (e.shiftKey) return; // Shift+Enter allows newline
       e.preventDefault();
       handleCheck(false);
     }
@@ -377,8 +456,8 @@ export const DictationBox: React.FC<DictationBoxProps> = ({
             <button
               type="button"
               onClick={onToggleShadowing}
-              title={isShadowingRecording ? 'Stop recording (Space)' : 'Shadow with microphone (Space)'}
-              aria-label={isShadowingRecording ? 'Stop recording' : 'Record voice for shadowing'}
+              title="Open the speaking activity"
+              aria-label="Open speaking practice"
               className={`p-1.5 rounded-full transition-all ${
                 isShadowingRecording
                   ? 'bg-rose-500 text-white animate-pulse shadow-md shadow-rose-500/30'
@@ -402,6 +481,8 @@ export const DictationBox: React.FC<DictationBoxProps> = ({
         </div>
       </div>
 
+      <p className="text-sm text-text-secondary leading-relaxed">Listen, then write what you hear. Use a hint if you get stuck, or reveal the answer to study it.</p>
+      <label className="flex items-center gap-2 text-xs text-text-secondary cursor-pointer"><input type="checkbox" checked={autoAdvance} onChange={e => setAutoAdvance(e.target.checked)} className="accent-emerald-300 w-4 h-4" />Automatically play the next sentence after a correct answer</label>
       {/* Word Slots Container (Section 7.3) */}
       <div
         role="region"
@@ -409,10 +490,11 @@ export const DictationBox: React.FC<DictationBoxProps> = ({
         className="flex flex-wrap gap-2 p-3.5 bg-background/80 rounded-control border border-border/60 min-h-[52px] items-center select-none"
       >
         {targetNorm.display_tokens.map((token) => {
-          // If sentence is revealed or completed: display actual word
-          if (isCompleted || isRevealed) {
+          // If answer is visible: display actual word
+          if (isAnswerVisible) {
             return (
-              <span
+              <button
+                type="button"
                 key={token.index}
                 onClick={() => onSelectWord?.(token.text)}
                 title="Click to inspect British pronunciation and definition"
@@ -423,21 +505,22 @@ export const DictationBox: React.FC<DictationBoxProps> = ({
                 }`}
               >
                 {token.text}
-              </span>
+              </button>
             );
           }
 
           // If word matched: display in green
           if (matchedDisplayTokens.has(token.index)) {
             return (
-              <span
+              <button
+                type="button"
                 key={token.index}
                 onClick={() => onSelectWord?.(token.text)}
                 title="Matched! Click to inspect British pronunciation"
                 className="px-2.5 py-1 rounded text-xs font-mono font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 cursor-pointer hover:bg-emerald-500/30 transition shadow-xs"
               >
                 {token.text}
-              </span>
+              </button>
             );
           }
 
@@ -486,12 +569,8 @@ export const DictationBox: React.FC<DictationBoxProps> = ({
 
           {!result.is_exact && (
             <div className="flex items-center space-x-4 text-[11px] text-text-secondary">
-              <span>Distance: {result.distance}</span>
-              {result.alignment && (
-                <span>
-                  Substitutions: {result.alignment.filter((a) => a.op === 'substitution').length}
-                </span>
-              )}
+              <span>Words to revisit: {result.alignment.filter(a => a.op === 'substitution').length}</span>
+              <span>Missing words: {result.alignment.filter(a => a.op === 'omission').length}</span>
             </div>
           )}
         </div>
@@ -512,13 +591,51 @@ export const DictationBox: React.FC<DictationBoxProps> = ({
           id="dictation-input"
           aria-label="Type what you hear"
           value={draft}
-          onChange={(e) => setDraft(segment.id, e.target.value)}
+          onChange={(e) => {
+            if (advanceTimerRef.current) {
+              clearTimeout(advanceTimerRef.current);
+              advanceTimerRef.current = null;
+            }
+            currentSubmissionIdRef.current = null;
+            setDraft(segment.id, e.target.value);
+            setStaleDiff(segment.id, true);
+          }}
+          onSelect={(e) => {
+            const start = e.currentTarget.selectionStart;
+            const end = e.currentTarget.selectionEnd;
+            if (end > start) {
+              const sel = draft.slice(start, end).trim();
+              if (sel.length >= 2 && sel.length <= 80) {
+                setSelectedText(sel);
+                return;
+              }
+            }
+            setSelectedText('');
+          }}
           onKeyDown={handleKeyDown}
           disabled={isChecking}
-          placeholder="Listen to the audio and transcribe the sentence here (Ctrl+Enter to check, Tab+Tab for hint)..."
-          rows={3}
-          className="w-full bg-background border border-border focus:border-accent rounded-control p-3.5 text-sm text-text-primary placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-accent/20 transition resize-y font-sans leading-relaxed disabled:opacity-50"
+          placeholder="Listen to the audio and transcribe the sentence here..."
+          aria-describedby="dictation-input-help"
+          maxLength={2000}
+          rows={4}
+          className="w-full bg-background border border-border focus:border-accent rounded-control p-4 text-base text-text-primary placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-accent/20 transition resize-y font-sans leading-relaxed disabled:opacity-50"
         />
+        <p id="dictation-input-help" className="text-xs text-text-secondary">Enter to check · Shift+Enter for a new line · Alt+R to listen again</p>
+        {selectedText && (
+          <div className="flex items-center justify-between px-3 py-1.5 rounded-md bg-accent/10 border border-accent/30 text-xs text-text-primary animate-in fade-in duration-100">
+            <span className="truncate">
+              Selected: <strong className="text-white">"{selectedText}"</strong>
+            </span>
+            <button
+              type="button"
+              onClick={() => onSelectWord?.(selectedText)}
+              className="ml-2 px-2.5 py-1 rounded bg-accent text-background font-bold text-[11px] hover:bg-accent/90 transition shadow-xs flex items-center gap-1 shrink-0"
+            >
+              <BookOpen className="w-3 h-3" />
+              <span>Inspect in Contextual Dictionary</span>
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Dictation Action Buttons with Tooltip Reasons */}
@@ -528,27 +645,29 @@ export const DictationBox: React.FC<DictationBoxProps> = ({
           <button
             type="button"
             onClick={() => handleCheck(false)}
-            disabled={!draft.trim() || isChecking}
+            disabled={!draft.trim() || isChecking || isLoadingSession}
             title={
               !draft.trim()
                 ? 'Type what you hear before checking'
+                : isLoadingSession
+                ? 'Initializing practice session...'
                 : 'Evaluate dictation accuracy (Ctrl+Enter)'
             }
             aria-label="Check sentence"
             className="px-4 py-2 rounded-control text-xs font-semibold bg-accent text-background hover:bg-accent-hover disabled:opacity-40 disabled:cursor-not-allowed transition shadow-md shadow-accent/20 flex items-center space-x-1.5"
           >
             <Check className="w-3.5 h-3.5" />
-            <span>{isChecking ? 'Checking...' : 'Check'}</span>
+            <span>{isChecking ? 'Checking...' : isLoadingSession ? 'Loading...' : 'Check'}</span>
           </button>
 
           {/* Hint Button */}
           <button
             type="button"
             onClick={handleHint}
-            disabled={isCompleted || isRevealed || isHinting}
+            disabled={isAnswerVisible || isHinting}
             title={
-              isCompleted || isRevealed
-                ? 'Hints disabled for revealed/completed sentences'
+              isAnswerVisible
+                ? 'Hints disabled when answer is already revealed/completed'
                 : 'Reveal first letter of next hidden word (Alt+H)'
             }
             aria-label="Get hint"
@@ -562,9 +681,9 @@ export const DictationBox: React.FC<DictationBoxProps> = ({
           <button
             type="button"
             onClick={handleReveal}
-            disabled={isCompleted || isRevealed || isRevealing}
+            disabled={isAnswerVisible || isRevealing}
             title={
-              isCompleted || isRevealed
+              isAnswerVisible
                 ? 'Sentence is already revealed'
                 : 'Reveal answer and unlock speaking practice'
             }
@@ -576,7 +695,7 @@ export const DictationBox: React.FC<DictationBoxProps> = ({
           </button>
 
           {/* Try Again Button (Shown after check or reveal) */}
-          {(isRevealed || (result && !result.is_exact)) && (
+          {(isAnswerVisible || isCompleted || isRevealed || (result && !result.is_exact)) && (
             <button
               type="button"
               onClick={handleTryAgain}
@@ -607,8 +726,14 @@ export const DictationBox: React.FC<DictationBoxProps> = ({
         {(isCompleted || isRevealed) && !isLastSegment && (
           <button
             type="button"
-            onClick={onNext}
-            title="Advance to next sentence"
+            onClick={() => {
+              if (advanceTimerRef.current) {
+                clearTimeout(advanceTimerRef.current);
+                advanceTimerRef.current = null;
+              }
+              onNext?.(true);
+            }}
+            title="Advance to next sentence and play"
             aria-label="Advance to next"
             className="px-4 py-2 rounded-control text-xs font-bold bg-emerald-500 text-white hover:bg-emerald-600 transition shadow-lg shadow-emerald-500/20 flex items-center space-x-1.5 ml-auto"
           >

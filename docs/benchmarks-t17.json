@@ -4,11 +4,11 @@
     "python": {
       "version": "3.11.9",
       "compatible": true,
-      "executable": "C:\\Users\\crisa\\Workspace\\system-design\\english-learning\\backend\\.venv\\Scripts\\python.exe"
+      "executable": "C:\\Users\\YOUR_USER\\Workspace\\system-design\\english-learning\\backend\\.venv\\Scripts\\python.exe"
     },
     "ffmpeg": {
       "available": true,
-      "path": "C:\\Users\\crisa\\AppData\\Local\\Microsoft\\WinGet\\Packages\\Gyan.FFmpeg_Microsoft.Winget.Source_8wekyb3d8bbwe\\ffmpeg-9.0.2-full_build\\bin\\ffmpeg.EXE",
+      "path": "C:\\Users\\YOUR_USER\\AppData\\Local\\Microsoft\\WinGet\\Packages\\Gyan.FFmpeg_Microsoft.Winget.Source_8wekyb3d8bbwe\\ffmpeg-9.0.2-full_build\\bin\\ffmpeg.EXE",
       "version": "ffmpeg version 9.0.2-full_build-www.gyan.dev Copyright (c) 2000-2026 the FFmpeg developers",
       "ffprobe_available": true
     },
@@ -34,9 +34,9 @@
       "int8_cpu_supported": true,
       "error": null,
       "registered_dll_dirs": [
-        "C:\\Users\\crisa\\Workspace\\system-design\\english-learning\\backend\\.venv\\Lib\\site-packages\\nvidia\\cublas\\bin",
-        "C:\\Users\\crisa\\Workspace\\system-design\\english-learning\\backend\\.venv\\Lib\\site-packages\\nvidia\\cuda_nvrtc\\bin",
-        "C:\\Users\\crisa\\Workspace\\system-design\\english-learning\\backend\\.venv\\Lib\\site-packages\\nvidia\\cudnn\\bin"
+        "C:\\Users\\YOUR_USER\\Workspace\\system-design\\english-learning\\backend\\.venv\\Lib\\site-packages\\nvidia\\cublas\\bin",
+        "C:\\Users\\YOUR_USER\\Workspace\\system-design\\english-learning\\backend\\.venv\\Lib\\site-packages\\nvidia\\cuda_nvrtc\\bin",
+        "C:\\Users\\YOUR_USER\\Workspace\\system-design\\english-learning\\backend\\.venv\\Lib\\site-packages\\nvidia\\cudnn\\bin"
       ]
     },
     "gpu": {
@@ -46,7 +46,7 @@
       "driver_version": "566.07"
     },
     "models": {
-      "cache_dir": "C:\\Users\\crisa\\Workspace\\system-design\\english-learning\\data\\models",
+      "cache_dir": "C:\\Users\\YOUR_USER\\Workspace\\system-design\\english-learning\\data\\models",
       "cached_models": [
         "Systran/faster-whisper-tiny.en"
       ]

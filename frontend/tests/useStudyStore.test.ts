@@ -60,6 +60,19 @@ describe('useStudyStore and resolveInitialSegment', () => {
     useStudyStore.getState().reset();
   });
 
+  it('restores drafts after rehydration without persisting recording state or sessions', async () => {
+    useStudyStore.getState().setDraft(205, 'An unfinished sentence');
+    useStudyStore.getState().setIsRecording(true);
+    const saved = localStorage.getItem('fluenttube_study_drafts')!;
+    expect(JSON.parse(saved).state).toEqual({ drafts: { 205: 'An unfinished sentence' } });
+    useStudyStore.getState().reset();
+    localStorage.setItem('fluenttube_study_drafts', saved);
+    await useStudyStore.persist.rehydrate();
+    expect(useStudyStore.getState().drafts[205]).toBe('An unfinished sentence');
+    expect(useStudyStore.getState().isRecording).toBe(false);
+    expect(useStudyStore.getState().sessions).toEqual({});
+  });
+
   describe('resolveInitialSegment', () => {
     it('restores last_segment_id when it exists in segments', () => {
       const initial = resolveInitialSegment(mockVideo);

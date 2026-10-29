@@ -306,3 +306,45 @@ def test_oversized_input_rejected(client):
     oversized = "a" * 2001
     res = client.post(f"/api/sessions/{session_id}/check", json={"input_text": oversized})
     assert res.status_code == 422
+
+
+def test_dictation_idempotency_returns_matched_attempt_result_not_later_attempt(client):
+    # Regression test for F-08: replaying request A must return A's attempt result, not B's
+    resp = client.post("/api/segments/1/sessions", json={})
+    session_id = resp.json()["id"]
+
+    req_id_1 = str(uuid.uuid4())
+    # Request A: "we" (Attempt 1, inexact, score < 100)
+    c1 = client.post(
+        f"/api/sessions/{session_id}/check",
+        json={"input_text": "we", "client_request_id": req_id_1},
+    )
+    assert c1.status_code == 200
+    res1 = c1.json()
+    assert res1["is_exact"] is False
+    score_1 = res1["score"]
+    attempt_id_1 = res1["attempt_id"]
+
+    # Request B: "I'm ready to learn." (Attempt 2, exact, score = 100)
+    req_id_2 = str(uuid.uuid4())
+    c2 = client.post(
+        f"/api/sessions/{session_id}/check",
+        json={"input_text": "I'm ready to learn.", "client_request_id": req_id_2},
+    )
+    assert c2.status_code == 200
+    res2 = c2.json()
+    assert res2["is_exact"] is True
+    assert res2["score"] == 100
+    attempt_id_2 = res2["attempt_id"]
+    assert attempt_id_2 != attempt_id_1
+
+    # Retry Request A with req_id_1: MUST return Attempt 1 result, NOT Attempt 2 result!
+    c1_retry = client.post(
+        f"/api/sessions/{session_id}/check",
+        json={"input_text": "we", "client_request_id": req_id_1},
+    )
+    assert c1_retry.status_code == 200
+    res1_retry = c1_retry.json()
+    assert res1_retry["attempt_id"] == attempt_id_1
+    assert res1_retry["is_exact"] is False
+    assert res1_retry["score"] == score_1

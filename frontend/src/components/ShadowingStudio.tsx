@@ -40,7 +40,6 @@ export const ShadowingStudio: React.FC<ShadowingStudioProps> = ({
   onListenOriginal,
   onBeforeRecord,
 }) => {
-  const isUnlocked = Boolean(segment?.completed || segment?.revealed);
   const segmentId = segment?.id ?? null;
 
   const {
@@ -49,7 +48,11 @@ export const ShadowingStudio: React.FC<ShadowingStudioProps> = ({
     setShadowingResult,
     setShadowingJob,
     updateSegment,
+    retryingSegmentId,
   } = useStudyStore();
+
+  const isRetrying = segmentId != null && retryingSegmentId === segmentId;
+  const isUnlocked = Boolean((segment?.completed || segment?.revealed) && !isRetrying);
 
   const currentEval = segmentId != null ? shadowingResults[segmentId] || null : null;
   const activeJobId = segmentId != null ? shadowingJobs[segmentId] || null : null;
@@ -68,6 +71,15 @@ export const ShadowingStudio: React.FC<ShadowingStudioProps> = ({
     maxDurationSeconds: 30,
     onBeforeStart: onBeforeRecord,
   });
+
+  // Reset recording state when switching segments so audio from A is never evaluated on B (F-06)
+  const prevSegmentIdRef = useRef<number | null>(segmentId);
+  useEffect(() => {
+    if (prevSegmentIdRef.current !== segmentId) {
+      prevSegmentIdRef.current = segmentId;
+      baseResetRecording();
+    }
+  }, [segmentId, baseResetRecording]);
 
   // WaveSurfer state & refs
   const waveformContainerRef = useRef<HTMLDivElement | null>(null);

@@ -12,7 +12,7 @@ httpx>=0.27.0,<0.29.0
 
 # Video ingestion & subtitles
 youtube-transcript-api>=0.6.2,<0.7.0
-yt-dlp>=2024.10.7
+yt-dlp[default]>=2026.10.21
 
 # Speech recognition (ASR)
 faster-whisper>=1.1.0,<2.0.0
@@ -23,5 +23,6 @@ nvidia-cudnn-cu12>=9.1.0.70
 # Optional Contextual LLM Tutor (Section 11, T20)
 google-genai>=1.0.0,<3.0.0
 
-# Free British TTS Audio
+# Free British TTS Audio & IPA Phonetics
 edge-tts>=7.0.0,<8.0.0
+eng-to-ipa>=0.0.2

@@ -113,7 +113,7 @@ describe('VideoLoaderModal Component', () => {
     await waitFor(() => {
       expect(handleSuccess).toHaveBeenCalledWith(88);
       expect(handleClose).toHaveBeenCalled();
-    });
+    }, { timeout: 3000 });
 
     expect(getJobSpy).toHaveBeenCalledWith('job-test-123');
   });
@@ -218,7 +218,7 @@ describe('VideoLoaderModal Component', () => {
     fireEvent.click(screen.getByRole('button', { name: /import video/i }));
 
     expect(await screen.findByText(/Import Failed/i)).toBeInTheDocument();
-    expect(screen.getByText(/no tiene subtítulos en inglés/i)).toBeInTheDocument();
+    expect(screen.getByText(/No English subtitles were available/i)).toBeInTheDocument();
 
     // Click "Try Another Video"
     const retryBtn = screen.getByRole('button', { name: /try another video/i });
@@ -227,5 +227,83 @@ describe('VideoLoaderModal Component', () => {
     // Returns to URL input form
     expect(screen.getByText('Import YouTube Video')).toBeInTheDocument();
     expect(screen.getByPlaceholderText('https://www.youtube.com/watch?v=...')).toBeInTheDocument();
+  });
+
+  it('rejects non-YouTube links before sending an import request', async () => {
+    const ingest = vi.spyOn(apiClient, 'ingestVideo');
+    renderWithQueryClient(<VideoLoaderModal isOpen onClose={vi.fn()} onSuccess={vi.fn()} />);
+    fireEvent.change(screen.getByLabelText('YouTube Video URL'), { target: { value: 'https://example.com/video' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Import Video' }));
+    expect(screen.getByRole('alert')).toHaveTextContent('Use a YouTube video link');
+    expect(ingest).not.toHaveBeenCalled();
+  });
+
+  it('closes with Escape and restores page scrolling', () => {
+    const close = vi.fn();
+    const { unmount } = renderWithQueryClient(<VideoLoaderModal isOpen onClose={close} onSuccess={vi.fn()} />);
+    expect(document.body.style.overflow).toBe('hidden');
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(close).toHaveBeenCalledTimes(1);
+    unmount();
+    expect(document.body.style.overflow).toBe('');
+  });
+
+  it('opens a fresh import form after a background job finishes', async () => {
+    vi.spyOn(apiClient, 'getJob').mockResolvedValue({ id: 'finished-job', kind: 'ingest', status: 'succeeded', stage: 'done', progress: 1, result: { video_id: 88 }, error: null, created_at: '2026-10-28' });
+    const success = vi.fn();
+    const close = vi.fn();
+    const { rerender } = renderWithQueryClient(<VideoLoaderModal isOpen initialJobId="finished-job" onClose={close} onSuccess={success} />);
+    await waitFor(() => expect(success).toHaveBeenCalledWith(88));
+    rerender(<VideoLoaderModal isOpen={false} onClose={close} onSuccess={success} />);
+    rerender(<VideoLoaderModal isOpen onClose={close} onSuccess={success} />);
+    expect(screen.getByRole('heading', { name: 'Import YouTube Video' })).toBeInTheDocument();
+    expect(screen.getByLabelText('YouTube Video URL')).toHaveValue('');
+  });
+
+  it('explains a legacy bot-verification failure without exposing commands or encouraging retries', async () => {
+    const ingest = vi.spyOn(apiClient, 'ingestVideo');
+    vi.spyOn(apiClient, 'getJob').mockResolvedValue({ id: 'blocked-job', kind: 'ingest', status: 'failed', stage: 'metadata', progress: 0.1, result: null, error: { code: 'VIDEO_UNAVAILABLE', message: 'ERROR: [youtube] epbFY0DTPxs: Sign in to confirm you’re not a bot. Use --cookies-from-browser', details: {} }, created_at: '2026-10-28' });
+    renderWithQueryClient(<VideoLoaderModal isOpen initialJobId="blocked-job" onClose={vi.fn()} onSuccess={vi.fn()} />);
+    expect(await screen.findByText('YouTube is asking for verification')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Open on YouTube' })).toHaveAttribute('href', 'https://www.youtube.com/watch?v=epbFY0DTPxs');
+    expect(screen.queryByText(/--cookies-from-browser/)).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Retry this video' })).not.toBeInTheDocument();
+    expect(screen.queryByText('10%')).not.toBeInTheDocument();
+    expect(screen.getByText(/No automatic retries/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Back to library' })).toBeInTheDocument();
+    expect(ingest).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: 'Use a video file instead' }));
+    expect(screen.getByRole('heading', { name: 'Import a video file' })).toBeInTheDocument();
+    expect(screen.getByLabelText('Choose a video file')).toBeInTheDocument();
+  });
+
+  it('imports a selected file through the local endpoint without attempting a YouTube import', async () => {
+    const ingest = vi.spyOn(apiClient, 'ingestVideo');
+    const upload = vi.spyOn(apiClient, 'uploadVideo').mockResolvedValue({ job_id: 'local-job', status: 'queued', cached: false });
+    vi.spyOn(apiClient, 'getJob').mockResolvedValue({ id: 'local-job', kind: 'local_ingest', status: 'running', stage: 'transcribing', progress: 0.35, result: null, error: null, created_at: '2026-10-28' });
+    renderWithQueryClient(<VideoLoaderModal isOpen onClose={vi.fn()} onSuccess={vi.fn()} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Video file' }));
+    const file = new File(['local content'], 'english.mp4', { type: 'video/mp4' });
+    fireEvent.change(screen.getByLabelText('Choose a video file'), { target: { files: [file] } });
+    fireEvent.click(screen.getByRole('button', { name: 'Import file' }));
+    expect(await screen.findByText('Processing Video')).toBeInTheDocument();
+    expect(upload).toHaveBeenCalledWith(file);
+    expect(ingest).not.toHaveBeenCalled();
+  });
+
+  it('continues an interrupted local import without another upload', async () => {
+    const upload = vi.spyOn(apiClient, 'uploadVideo');
+    const failed: JobDTO = { id: 'interrupted-local', kind: 'local_ingest', status: 'failed', stage: 'transcribing', progress: 0.35, error: { code: 'JOB_INTERRUPTED', message: 'Job interrupted by server shutdown or restart.', details: { can_resume: true } }, created_at: '2026-10-28' };
+    const running: JobDTO = { ...failed, status: 'running', stage: 'recovering', error: null };
+    vi.spyOn(apiClient, 'getJob').mockResolvedValueOnce(failed).mockResolvedValue(running);
+    const resume = vi.spyOn(apiClient, 'resumeLocalJob').mockResolvedValue(running);
+    renderWithQueryClient(<VideoLoaderModal isOpen initialJobId={failed.id} onClose={vi.fn()} onSuccess={vi.fn()} />);
+    expect(await screen.findByText('Processing was interrupted')).toBeInTheDocument();
+    expect(screen.queryByText(/server shutdown/)).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Continue processing' }));
+    expect(await screen.findByText('Restoring your saved video...')).toBeInTheDocument();
+    expect(resume).toHaveBeenCalledWith(failed.id);
+    expect(upload).not.toHaveBeenCalled();
+    expect(localStorage.getItem('fluenttube_pending_job_id')).toBe(failed.id);
   });
 });

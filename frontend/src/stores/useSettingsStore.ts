@@ -3,6 +3,7 @@ import { create } from 'zustand';
 export interface UserPreferences {
   playbackSpeed: number;
   autoLoop: boolean;
+  autoAdvance: boolean;
   soundEffect: boolean;
   explanationLanguage: string;
 }
@@ -10,6 +11,7 @@ export interface UserPreferences {
 export interface SettingsState extends UserPreferences {
   setPlaybackSpeed: (speed: number) => void;
   setAutoLoop: (loop: boolean) => void;
+  setAutoAdvance: (advance: boolean) => void;
   setSoundEffect: (sound: boolean) => void;
   setExplanationLanguage: (lang: string) => void;
   resetPreferences: () => void;
@@ -20,6 +22,7 @@ const STORAGE_KEY = 'fluenttube_user_preferences';
 export const DEFAULT_PREFERENCES: UserPreferences = {
   playbackSpeed: 1.0,
   autoLoop: true,
+  autoAdvance: false,
   soundEffect: true,
   explanationLanguage: 'es',
 };
@@ -54,28 +57,34 @@ export const useSettingsStore = create<SettingsState>((set, get) => {
   return {
     ...initial,
 
+    setAutoAdvance: (autoAdvance) => {
+      set({ autoAdvance });
+      const { playbackSpeed, autoLoop, soundEffect, explanationLanguage } = get();
+      savePreferences({ playbackSpeed, autoLoop, autoAdvance, soundEffect, explanationLanguage });
+    },
+
     setPlaybackSpeed: (playbackSpeed) => {
       set({ playbackSpeed });
-      const { autoLoop, soundEffect, explanationLanguage } = get();
-      savePreferences({ playbackSpeed, autoLoop, soundEffect, explanationLanguage });
+      const { autoLoop, autoAdvance, soundEffect, explanationLanguage } = get();
+      savePreferences({ playbackSpeed, autoLoop, autoAdvance, soundEffect, explanationLanguage });
     },
 
     setAutoLoop: (autoLoop) => {
       set({ autoLoop });
-      const { playbackSpeed, soundEffect, explanationLanguage } = get();
-      savePreferences({ playbackSpeed, autoLoop, soundEffect, explanationLanguage });
+      const { playbackSpeed, autoAdvance, soundEffect, explanationLanguage } = get();
+      savePreferences({ playbackSpeed, autoLoop, autoAdvance, soundEffect, explanationLanguage });
     },
 
     setSoundEffect: (soundEffect) => {
       set({ soundEffect });
-      const { playbackSpeed, autoLoop, explanationLanguage } = get();
-      savePreferences({ playbackSpeed, autoLoop, soundEffect, explanationLanguage });
+      const { playbackSpeed, autoLoop, autoAdvance, explanationLanguage } = get();
+      savePreferences({ playbackSpeed, autoLoop, autoAdvance, soundEffect, explanationLanguage });
     },
 
     setExplanationLanguage: (explanationLanguage) => {
       set({ explanationLanguage });
-      const { playbackSpeed, autoLoop, soundEffect } = get();
-      savePreferences({ playbackSpeed, autoLoop, soundEffect, explanationLanguage });
+      const { playbackSpeed, autoLoop, autoAdvance, soundEffect } = get();
+      savePreferences({ playbackSpeed, autoLoop, autoAdvance, soundEffect, explanationLanguage });
     },
 
     resetPreferences: () => {

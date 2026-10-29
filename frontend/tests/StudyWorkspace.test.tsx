@@ -150,6 +150,7 @@ describe('StudyPage Workspace Integration', () => {
   beforeEach(() => {
     vi.restoreAllMocks();
     useStudyStore.getState().reset();
+    vi.spyOn(apiClient, 'createSession').mockImplementation(async id => ({ id: `session-${id}`, segment_id: id, hinted_display_indices: [], answer_revealed: false, last_input: '', created_at: '2026-10-28' }));
   });
 
   it('restores last_segment_id on opening and updates progress on navigation', async () => {
@@ -302,6 +303,51 @@ describe('StudyPage Workspace Integration', () => {
     fireEvent.click(explainBtn);
     expect(screen.getByRole('dialog')).toBeInTheDocument();
     expect(screen.getByText(/Contextual Grammar Tutor/i)).toBeInTheDocument();
+  });
+
+  it('changes activities while preserving the written draft and keeping extra tools optional', async () => {
+    vi.spyOn(apiClient, 'getVideo').mockResolvedValue(mockVideoDetail);
+    renderWithQueryClient(<StudyPage videoId={5} onBackToLibrary={vi.fn()} />);
+    const draft = await screen.findByLabelText('Type what you hear');
+    fireEvent.change(draft, { target: { value: 'My unfinished answer' } });
+    expect(screen.queryByRole('region', { name: 'British Study Inspector' })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('tab', { name: '1. Listen' }));
+    expect(screen.getByRole('heading', { name: 'First, just listen.' })).toBeVisible();
+    expect(draft).not.toBeVisible();
+    fireEvent.click(screen.getByRole('button', { name: 'I’m ready to write' }));
+    expect(draft).toBeVisible();
+    expect(draft).toHaveValue('My unfinished answer');
+    fireEvent.click(screen.getByRole('tab', { name: '3. Speak' }));
+    expect(screen.getByRole('heading', { name: 'Say it in your own voice.' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Write or reveal the sentence first' })).toBeVisible();
+  });
+
+  it('finishes the requested activity change after the recording is discarded', async () => {
+    vi.spyOn(apiClient, 'getVideo').mockResolvedValue(mockVideoDetail);
+    renderWithQueryClient(<StudyPage videoId={5} onBackToLibrary={vi.fn()} />);
+    await screen.findByText('Sentence 2 of 2');
+    act(() => useStudyStore.getState().setIsRecording(true));
+    fireEvent.click(screen.getByRole('tab', { name: '1. Listen' }));
+    expect(screen.getByRole('tab', { name: '2. Write' })).toHaveAttribute('aria-selected', 'true');
+    fireEvent.click(screen.getByRole('button', { name: 'Stop Recording & Discard' }));
+    expect(screen.getByRole('heading', { name: 'First, just listen.' })).toBeVisible();
+    expect(useStudyStore.getState().isRecording).toBe(false);
+  });
+
+  it('starts a fresh video with a listening guide', async () => {
+    vi.spyOn(apiClient, 'getVideo').mockResolvedValue({ ...mockVideoDetail, last_segment_id: null, completed_count: 0, segments: mockSegments.map(s => ({ ...s, completed: false, revealed: false, shadowing_unlocked: false })) });
+    renderWithQueryClient(<StudyPage videoId={5} onBackToLibrary={vi.fn()} />);
+    expect(await screen.findByRole('heading', { name: 'First, just listen.' })).toBeVisible();
+    expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
+  });
+
+  it('does not display a previously opened video when the next video fails', async () => {
+    useStudyStore.getState().setVideo(mockVideoDetail);
+    vi.spyOn(apiClient, 'getVideo').mockRejectedValue(new Error('Video unavailable'));
+    renderWithQueryClient(<StudyPage videoId={999} onBackToLibrary={vi.fn()} />);
+    expect(await screen.findByText('Video unavailable')).toBeInTheDocument();
+    expect(screen.queryByText(mockVideoDetail.title)).not.toBeInTheDocument();
+    expect(screen.queryByRole('tablist')).not.toBeInTheDocument();
   });
 });
 

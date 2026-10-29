@@ -66,6 +66,7 @@ export function useRecorder(options: UseRecorderOptions = {}): UseRecorderReturn
   } = options;
 
   const setIsRecordingStore = useStudyStore((s) => s.setIsRecording);
+  const discardRecordingRequested = useStudyStore((s) => s.discardRecordingRequested);
 
   const [state, setState] = useState<RecorderState>('idle');
   const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
@@ -78,23 +79,11 @@ export function useRecorder(options: UseRecorderOptions = {}): UseRecorderReturn
   const chunksRef = useRef<Blob[]>([]);
   const timerRef = useRef<number | null>(null);
   const startTimeRef = useRef<number>(0);
-
-  // Clean up object URLs and stream tracks on unmount
-  useEffect(() => {
-    return () => {
-      if (timerRef.current != null) {
-        window.clearInterval(timerRef.current);
-      }
-      if (streamRef.current) {
-        streamRef.current.getTracks().forEach((track) => track.stop());
-        streamRef.current = null;
-      }
-      if (audioUrl) {
-        URL.revokeObjectURL(audioUrl);
-      }
-      setIsRecordingStore(false);
-    };
-  }, [audioUrl, setIsRecordingStore]);
+  const isCancelledRef = useRef<boolean>(false);
+  const isMountedRef = useRef<boolean>(true);
+  const prevDiscardCountRef = useRef(discardRecordingRequested);
+  const audioUrlRef = useRef<string | null>(null);
+  audioUrlRef.current = audioUrl;
 
   // Release microphone hardware immediately
   const releaseMediaStream = useCallback(() => {
@@ -117,7 +106,80 @@ export function useRecorder(options: UseRecorderOptions = {}): UseRecorderReturn
     }
   }, []);
 
-  // Stop recording
+  // Reset recording to idle, safely stopping hardware and discarding chunks
+  const resetRecording = useCallback(() => {
+    isCancelledRef.current = true;
+    clearTimer();
+
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
+      try {
+        mediaRecorderRef.current.ondataavailable = null;
+        mediaRecorderRef.current.onstop = null;
+        mediaRecorderRef.current.stop();
+      } catch {
+        // ignore
+      }
+    }
+    mediaRecorderRef.current = null;
+
+    releaseMediaStream();
+    setIsRecordingStore(false);
+
+    if (audioUrlRef.current) {
+      URL.revokeObjectURL(audioUrlRef.current);
+      audioUrlRef.current = null;
+      setAudioUrl(null);
+    }
+    chunksRef.current = [];
+    setAudioBlob(null);
+    setDurationSeconds(0);
+    setErrorMessage(null);
+    setState('idle');
+  }, [clearTimer, releaseMediaStream, setIsRecordingStore]);
+
+  // Clean up on unmount
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+      isCancelledRef.current = true;
+      if (timerRef.current != null) {
+        window.clearInterval(timerRef.current);
+        timerRef.current = null;
+      }
+      if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
+        try {
+          mediaRecorderRef.current.ondataavailable = null;
+          mediaRecorderRef.current.onstop = null;
+          mediaRecorderRef.current.stop();
+        } catch {}
+      }
+      mediaRecorderRef.current = null;
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach((track) => {
+          try {
+            track.stop();
+          } catch {}
+        });
+        streamRef.current = null;
+      }
+      if (audioUrlRef.current) {
+        URL.revokeObjectURL(audioUrlRef.current);
+        audioUrlRef.current = null;
+      }
+      setIsRecordingStore(false);
+    };
+  }, [setIsRecordingStore]);
+
+  // Listen to global discard requests
+  useEffect(() => {
+    if (discardRecordingRequested !== prevDiscardCountRef.current) {
+      prevDiscardCountRef.current = discardRecordingRequested;
+      resetRecording();
+    }
+  }, [discardRecordingRequested, resetRecording]);
+
+  // Stop recording normally
   const stopRecording = useCallback(() => {
     if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
       setState('stopping');
@@ -133,6 +195,7 @@ export function useRecorder(options: UseRecorderOptions = {}): UseRecorderReturn
   // Start recording
   const startRecording = useCallback(async () => {
     setErrorMessage(null);
+    isCancelledRef.current = false;
 
     // Pause YouTube playback before recording begins per Section 14.15
     if (onBeforeStart) {
@@ -170,8 +233,22 @@ export function useRecorder(options: UseRecorderOptions = {}): UseRecorderReturn
     let stream: MediaStream;
     try {
       stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      if (isCancelledRef.current || !isMountedRef.current) {
+        // Late permission arrived after unmount or cancellation! Stop tracks immediately.
+        stream.getTracks().forEach((track) => {
+          try {
+            track.stop();
+          } catch {
+            // ignore
+          }
+        });
+        return;
+      }
       streamRef.current = stream;
     } catch (err: unknown) {
+      if (isCancelledRef.current || !isMountedRef.current) {
+        return;
+      }
       setState('error');
       setIsRecordingStore(false);
       const error = err as Error;
@@ -281,22 +358,6 @@ export function useRecorder(options: UseRecorderOptions = {}): UseRecorderReturn
     stopRecording,
     setIsRecordingStore,
   ]);
-
-  // Reset recording to idle
-  const resetRecording = useCallback(() => {
-    clearTimer();
-    releaseMediaStream();
-    setIsRecordingStore(false);
-
-    if (audioUrl) {
-      URL.revokeObjectURL(audioUrl);
-      setAudioUrl(null);
-    }
-    setAudioBlob(null);
-    setDurationSeconds(0);
-    setErrorMessage(null);
-    setState('idle');
-  }, [audioUrl, clearTimer, releaseMediaStream, setIsRecordingStore]);
 
   return {
     state,

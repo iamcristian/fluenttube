@@ -99,7 +99,7 @@ if ($Occupied8000) {
     Write-Host "`n[ERROR] Port 8000 is already in use by process PID $Occupied8000." -ForegroundColor Red
     Write-Host "FluentTube AI requires port 8000 for backend API (strict binding)." -ForegroundColor Red
     Write-Host "Please close the application using port 8000 and try again." -ForegroundColor White
-    Write-Host "(Run 'stop_local.bat' if this was a previous FluentTube session).`n" -ForegroundColor White
+    Write-Host "(Run 'scripts/stop_local.ps1' if this was a previous FluentTube session).`n" -ForegroundColor White
     exit 1
 }
 
@@ -216,7 +216,7 @@ if ($BackendHealthy -and $FrontendHealthy) {
 Write-Host "  Frontend URL: http://127.0.0.1:5173" -ForegroundColor White
 Write-Host "  Backend API:  http://127.0.0.1:8000/api/health" -ForegroundColor White
 Write-Host "=======================================================" -ForegroundColor Green
-Write-Host "  Stop services anytime: .\stop_local.bat`n" -ForegroundColor Cyan
+Write-Host "  Stop services anytime: .\scripts/stop_local.ps1`n" -ForegroundColor Cyan
 
 if (-not $NoBrowser) {
     Start-Process "http://127.0.0.1:5173"

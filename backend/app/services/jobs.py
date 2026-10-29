@@ -55,6 +55,8 @@ class JobRunner:
     def start(self) -> None:
         """Start worker thread and perform startup recovery for interrupted jobs."""
         with self._lock:
+            if self._worker_thread is not None and self._worker_thread.is_alive():
+                return
             self._recover_interrupted_jobs()
             if self._worker_thread is None or not self._worker_thread.is_alive():
                 self._stop_event.clear()
@@ -75,17 +77,31 @@ class JobRunner:
 
     def _recover_interrupted_jobs(self) -> None:
         """
-        Transition any queued or running jobs from a prior crash/restart to failed
-        with error code JOB_INTERRUPTED.
+        Resume saved local imports after a restart. Other interrupted work is marked
+        failed; external requests are never retried automatically.
         """
         with Session(self.engine) as session:
             interrupted_jobs = session.exec(
                 select(Job).where(Job.status.in_(["queued", "running"]))
             ).all()
             for job in interrupted_jobs:
+                if job.kind == "local_ingest" and job.kind in self._handlers and not self.queue.full():
+                    try:
+                        from backend.app.services.local_video import local_media_path
+                        local_media_path(json.loads(job.payload_json)["file_relative_path"])
+                        job.status = "queued"
+                        job.stage = "recovering"
+                        job.error_code = None
+                        job.error_message = None
+                        job.finished_at = None
+                        session.add(job)
+                        self.queue.put_nowait(job.id)
+                        continue
+                    except (AppException, ValueError, KeyError, TypeError):
+                        pass
                 job.status = "failed"
                 job.error_code = "JOB_INTERRUPTED"
-                job.error_message = "Job interrupted by server shutdown or restart."
+                job.error_message = "Processing stopped when the local app restarted."
                 job.finished_at = utc_now()
                 session.add(job)
             if interrupted_jobs:
@@ -93,6 +109,37 @@ class JobRunner:
                 logger.warning(
                     f"Recovered {len(interrupted_jobs)} interrupted jobs from prior execution."
                 )
+
+    def resume_local_job(self, job_id: str) -> Job:
+        """Resume a saved local file once; never restart a YouTube request."""
+        from backend.app.services.local_video import local_media_path
+        with self._lock:
+            with Session(self.engine) as session:
+                job = session.get(Job, job_id)
+                if not job:
+                    raise AppException(code="RESOURCE_NOT_FOUND", message="This import was not found.", status_code=404)
+                if job.kind != "local_ingest":
+                    raise AppException(code="JOB_NOT_RESUMABLE", message="Only imports from saved local files can be continued this way.", status_code=409)
+                if job.status in {"queued", "running", "succeeded"}:
+                    return job
+                try:
+                    local_media_path(json.loads(job.payload_json)["file_relative_path"])
+                except (ValueError, KeyError, TypeError) as exc:
+                    raise AppException(code="LOCAL_MEDIA_NOT_FOUND", message="The saved file could not be found. Choose it again.", status_code=404) from exc
+                if self.queue.full():
+                    raise AppException(code="QUEUE_FULL", message="Another video is being processed. Try continuing this import a little later.", status_code=429, retryable=True)
+                job.status = "queued"
+                job.stage = "recovering"
+                job.error_code = None
+                job.error_message = None
+                job.finished_at = None
+                job.started_at = None
+                job.result_json = None
+                session.add(job)
+                session.commit()
+                session.refresh(job)
+                self.queue.put_nowait(job.id)
+                return job
 
     def enqueue_job(
         self,

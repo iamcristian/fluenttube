@@ -11,6 +11,7 @@ describe('App Component & Routing', () => {
     window.location.hash = '#/';
     localStorage.clear();
     queryClient.clear();
+    vi.spyOn(apiClient, 'getLocalImports').mockResolvedValue([]);
   });
 
   it('renders LibraryPage by default on root route', async () => {
@@ -21,7 +22,7 @@ describe('App Component & Routing', () => {
 
     render(<App />);
 
-    expect(screen.getByText('FluentTube AI')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'FluentTube home' })).toBeInTheDocument();
     expect(await screen.findByText('Your study library is empty')).toBeInTheDocument();
   });
 
@@ -86,7 +87,7 @@ describe('App Component & Routing', () => {
 
     // Returns to library view
     expect(window.location.hash).toBe('#/');
-    expect(await screen.findByText('Imported Videos (1)')).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Your library' })).toBeInTheDocument();
   });
 
   it('renders StudyPage directly when URL hash is #/study/:id', async () => {

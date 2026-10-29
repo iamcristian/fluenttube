@@ -6,7 +6,7 @@ const readyCallbacks: Array<() => void> = [];
  * Manages the global window.onYouTubeIframeAPIReady callback cleanly
  * without overwriting other potential consumers.
  */
-export function loadYouTubeIframeApi(): Promise<void> {
+export function loadYouTubeIframeApi(timeoutMs = 15000): Promise<void> {
   // If window.YT and Player are already loaded, resolve immediately
   if (typeof window !== 'undefined' && window.YT && window.YT.Player) {
     return Promise.resolve();
@@ -22,8 +22,28 @@ export function loadYouTubeIframeApi(): Promise<void> {
       return;
     }
 
+    let timeoutId: ReturnType<typeof setTimeout> | null = null;
+
+    const cleanup = () => {
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+        timeoutId = null;
+      }
+      apiPromise = null;
+      const script = document.querySelector('script[src*="youtube.com/iframe_api"]');
+      if (script && script.parentNode) {
+        script.parentNode.removeChild(script);
+      }
+    };
+
     // Register resolve callback
-    readyCallbacks.push(resolve);
+    readyCallbacks.push(() => {
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+        timeoutId = null;
+      }
+      resolve();
+    });
 
     // Save any existing hook
     const previousReady = window.onYouTubeIframeAPIReady;
@@ -46,7 +66,11 @@ export function loadYouTubeIframeApi(): Promise<void> {
     // Check if script tag is already in DOM
     const existingScript = document.querySelector('script[src*="youtube.com/iframe_api"]');
     if (existingScript) {
-      // Script is already added, wait for callback
+      // Script is already added, wait for callback with timeout
+      timeoutId = setTimeout(() => {
+        cleanup();
+        reject(new Error('Timed out waiting for YouTube IFrame API to initialize.'));
+      }, timeoutMs);
       return;
     }
 
@@ -55,9 +79,14 @@ export function loadYouTubeIframeApi(): Promise<void> {
     script.src = 'https://www.youtube.com/iframe_api';
     script.async = true;
     script.onerror = () => {
-      apiPromise = null;
+      cleanup();
       reject(new Error('Failed to load YouTube IFrame API script.'));
     };
+
+    timeoutId = setTimeout(() => {
+      cleanup();
+      reject(new Error('Timed out waiting for YouTube IFrame API to initialize.'));
+    }, timeoutMs);
 
     const firstScript = document.getElementsByTagName('script')[0];
     if (firstScript && firstScript.parentNode) {

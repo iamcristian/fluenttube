@@ -2,11 +2,12 @@ import json
 import uuid
 from typing import Optional
 from fastapi import APIRouter, Depends, Query, Response, status
+from sqlalchemy import delete
 from sqlmodel import Session, col, func, select
 
 from backend.app.database import get_session
 from backend.app.errors import AppException
-from backend.app.models import Job, Segment, Video, utc_now
+from backend.app.models import Job, Segment, Video, LocalVideoMedia, TutorCache, VocabularyCache, utc_now
 from backend.app.schemas import (
     IngestRequestDTO,
     IngestResponseDTO,
@@ -19,6 +20,9 @@ from backend.app.schemas import (
 )
 from backend.app.services.jobs import job_runner
 from backend.app.services.youtube_service import parse_youtube_url
+from backend.app.services.youtube_access import ensure_youtube_import_allowed
+from backend.app.services.local_video import local_media_path
+from backend.app.services.audio_service import safe_cleanup
 
 router = APIRouter(tags=["videos"])
 
@@ -88,6 +92,7 @@ def ingest_video(
             continue
 
     # 4. Enqueue new background job
+    ensure_youtube_import_allowed(session)
     client_request_id = req.client_request_id or str(uuid.uuid4())
     payload = {
         "url": req.url,
@@ -126,10 +131,12 @@ def list_videos(
         .limit(limit)
     )
     rows = session.exec(stmt).all()
+    local_ids = set(session.exec(select(LocalVideoMedia.video_id).where(LocalVideoMedia.video_id.in_([row[0].id for row in rows]))).all()) if rows else set()
     items = [
         VideoSummaryDTO(
             id=video.id,
             youtube_id=video.youtube_id,
+            source_type="local" if video.id in local_ids else "youtube",
             title=video.title,
             channel=video.channel,
             duration_seconds=video.duration_seconds,
@@ -207,6 +214,7 @@ def get_video_detail(
     return VideoDetailDTO(
         id=video.id,
         youtube_id=video.youtube_id,
+        source_type="local" if session.get(LocalVideoMedia, video.id) else "youtube",
         title=video.title,
         channel=video.channel,
         duration_seconds=video.duration_seconds,
@@ -258,8 +266,54 @@ def update_video_progress(
     video.last_opened_at = now
     session.add(video)
     session.commit()
-
     return VideoProgressResponseDTO(
         last_segment_id=payload.last_segment_id,
         last_opened_at=now,
     )
+
+
+@router.delete("/videos/{id}", status_code=status.HTTP_200_OK)
+def delete_video(id: int, session: Session = Depends(get_session)) -> dict:
+    """Remove a video, its practice history, caches, and any owned local media."""
+    video = session.get(Video, id)
+    if not video:
+        raise AppException(
+            code="VIDEO_NOT_FOUND",
+            message="This video has already been removed from your library.",
+            status_code=status.HTTP_404_NOT_FOUND,
+        )
+
+    removed_segment_ids = session.exec(select(Segment.id).where(Segment.video_id == id)).all()
+    active_jobs = session.exec(select(Job).where(Job.status.in_(["queued", "running"]))).all()
+    for job in active_jobs:
+        payload = json.loads(job.payload_json)
+        if payload.get("segment_id") in removed_segment_ids or payload.get("source_key") == video.youtube_id:
+            raise AppException(code="VIDEO_BUSY", message="This video is still being processed. Wait for it to finish, then remove it.", status_code=409)
+    media = session.get(LocalVideoMedia, id)
+    local_paths = []
+    if media:
+        try:
+            original = local_media_path(media.file_relative_path)
+            local_paths.extend((
+                original,
+                original.with_suffix(".playback.mp4"),
+                original.with_suffix(".transcript.json"),
+                original.with_suffix(".chunk.wav"),
+            ))
+        except AppException:
+            pass
+        session.delete(media)
+
+    segment_ids = select(Segment.id).where(Segment.video_id == id)
+    session.exec(delete(TutorCache).where(TutorCache.segment_id.in_(segment_ids)))
+    session.exec(delete(VocabularyCache).where(VocabularyCache.segment_id.in_(segment_ids)))
+    # Break the progress pointer before removing the segment it references.
+    video.last_segment_id = None
+    session.add(video)
+    session.flush()
+    # ORM relationships remove each segment's attempts and practice sessions.
+    session.delete(video)
+    session.commit()
+
+    safe_cleanup(*local_paths)
+    return {"deleted": True, "video_id": id, "segment_ids": removed_segment_ids}
