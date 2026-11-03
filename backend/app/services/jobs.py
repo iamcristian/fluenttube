@@ -111,7 +111,7 @@ class JobRunner:
                 )
 
     def resume_local_job(self, job_id: str) -> Job:
-        """Resume a saved local file once; never restart a YouTube request."""
+        """Resume a saved local file once."""
         from backend.app.services.local_video import local_media_path
         with self._lock:
             with Session(self.engine) as session:

@@ -15,7 +15,6 @@ React · TypeScript · FastAPI · SQLite · Faster-Whisper
 FluentTube turns English speech into short exercises. Import a video, listen to one sentence, write what you hear, then practice saying it aloud. Your library and progress stay on your computer.
 
 - **Bring your own video:** import MP4 or WebM files, with local transcription and native playback.
-- **YouTube imports:** use English subtitles where available, with speech recognition as a fallback. Access depends on YouTube's restrictions.
 - **A focused practice flow:** Listen → Write → Speak, with replay, speed controls and sentence looping.
 - **Dictation feedback:** word alignment, hints, answer reveal and saved drafts.
 - **Speaking practice:** record a short response and compare recognized words and timing.
@@ -76,11 +75,11 @@ Run `npm run dev:frontend` separately. The Windows root launcher is not portable
 
 ### First practice session
 
-1. Choose **Import Video → Video file**.
+1. Choose **Import Video**.
 2. Select an MP4 (H.264 recommended) or WebM with clear English speech, up to **250 MiB / 60 minutes** by default.
 3. Wait for transcription, then work through **Listen**, **Write** and **Speak**.
 
-The first transcription may download a speech model. Once cached, local imports and local playback do not require YouTube. Fragmented MP4 files get a cached playback copy without re-encoding; the app preserves its original copy and may use extra disk space.
+The first transcription may download a speech model. Once cached, local imports and local playback work offline. Fragmented MP4 files get a cached playback copy without re-encoding; the app preserves its original copy and may use extra disk space.
 
 ## Configuration and privacy
 
@@ -105,7 +104,7 @@ The API binds to `127.0.0.1:8000`; this is a single-user local application, not 
 ```mermaid
 flowchart LR
     Browser[React + TypeScript] --> API[FastAPI / REST]
-    Browser --> Player[Native local video / YouTube player]
+    Browser --> Player[Native local video player]
     API --> Jobs[Background job queue]
     API --> SQLite[(SQLite: library + progress)]
     Jobs --> Media[FFmpeg + local media storage]
@@ -124,7 +123,7 @@ backend/
 frontend/
   src/components/    Practice interface and controls
   src/pages/         Library, study workspace and settings
-  src/player/        Local and YouTube playback adapters
+  src/player/        Native local playback adapter
   src/stores/        Practice state and preferences
   tests/             Frontend tests
 shared/              Normalization rules and test fixtures
@@ -142,11 +141,10 @@ npm run check-env
 .\backend\.venv\Scripts\python.exe scripts/check_secrets.py --history
 ```
 
-Backend tests use isolated storage. Live YouTube tests are skipped unless explicitly enabled with `--live-youtube`; the normal suite does not initiate live YouTube imports. The credential check looks for common key formats and private files without printing values; it is a supplementary check, not a guarantee that every possible secret is detected.
+Backend tests use isolated storage. The credential check looks for common key formats and private files without printing values; it is a supplementary check, not a guarantee that every possible secret is detected.
 
 ## Practical limits
 
-- YouTube can reject anonymous imports or require verification. The app spaces imports and pauses after access restrictions; it cannot guarantee availability. Import a local file when needed.
 - Speaking feedback estimates recognized words and timing. It is not a phonetic pronunciation assessment.
 - CPU transcription can take time. GPU support depends on compatible NVIDIA hardware, drivers and the installed runtime.
 - Browser drafts and preferences are stored separately from the SQLite library.

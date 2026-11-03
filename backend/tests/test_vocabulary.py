@@ -57,7 +57,7 @@ def client_fixture(db_session: Session):
 
 def seed_video_and_segment(session: Session) -> Segment:
     video = Video(
-        youtube_id="vocab_test_vid",
+        source_key="vocab_test_vid",
         title="Vocabulary Test Video",
         duration_seconds=20.0,
         transcription_source="captions_manual",

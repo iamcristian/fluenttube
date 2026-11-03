@@ -1,6 +1,6 @@
 import { PlayerAdapter, PlayerError, PlayerState } from './types';
 
-/** Native playback for local uploads. Never initializes the YouTube API. */
+/** Native playback for local uploads. */
 export class LocalVideoAdapter implements PlayerAdapter {
   private video: HTMLVideoElement | null = null;
   private state = PlayerState.UNSTARTED;
@@ -27,7 +27,7 @@ export class LocalVideoAdapter implements PlayerAdapter {
     container.replaceChildren(video);
     this.video = video;
   }
-  private emitError(message: string) { this.errorListeners.forEach(fn => fn({ code: 'LOCAL_PLAYBACK_FAILED', message, isEmbedRestricted: false, videoUrl: this.url })); }
+  private emitError(message: string) { this.errorListeners.forEach(fn => fn({ code: 'LOCAL_PLAYBACK_FAILED', message, videoUrl: this.url })); }
   async play() { try { await this.video?.play(); } catch { this.emitError('Playback could not start. Press Play on the video to try again.'); } }
   pause() { this.video?.pause(); }
   seekTo(seconds: number) { if (this.video && this.video.readyState >= 1) this.video.currentTime = Math.max(0, seconds); }
@@ -37,8 +37,6 @@ export class LocalVideoAdapter implements PlayerAdapter {
   getAvailablePlaybackRates() { return [0.5, 0.75, 1, 1.25, 1.5]; }
   getPlaybackRate() { return this.video?.playbackRate ?? 1; }
   setPlaybackRate(rate: number) { if (this.video) this.video.playbackRate = rate; }
-  cueVideoById(_id: string, startSeconds = 0) { this.seekTo(startSeconds); }
-  loadVideoById(_id: string, startSeconds = 0) { this.seekTo(startSeconds); void this.play(); }
   destroy() { if (this.video) { this.video.pause(); this.video.removeAttribute('src'); this.video.load(); this.video.remove(); this.video = null; } this.readyListeners.clear(); this.stateListeners.clear(); this.rateListeners.clear(); this.errorListeners.clear(); }
   onReady(fn: () => void) { this.readyListeners.add(fn); return () => { this.readyListeners.delete(fn); }; }
   onStateChange(fn: (state: PlayerState) => void) { this.stateListeners.add(fn); return () => { this.stateListeners.delete(fn); }; }

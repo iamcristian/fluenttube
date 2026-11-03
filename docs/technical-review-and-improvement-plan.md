@@ -6,7 +6,7 @@ Review date: October 23, 2026 (America/La_Paz)
 
 This is an analysis-only review of the current local project. No application source, configuration, dependencies, or existing tests were changed. Diagnostic probes were kept outside the project. This document is a handoff for another AI or developer to implement the changes.
 
-**Verdict:** The project has a useful foundation, but its tests and completion claims overstate readiness. There are reproducible session, answer-disclosure, recording-lifecycle, and request-replay defects. The user's two principal product requirements also remain unimplemented: continuous YouTube dictation and a contextual dictionary powered by a local language model.
+**Verdict:** The project has a useful foundation, but its tests and completion claims overstate readiness. There are reproducible session, answer-disclosure, recording-lifecycle, and request-replay defects. The user's two principal product requirements also remain unimplemented: continuous video dictation and a contextual dictionary powered by a local language model.
 
 Fix the existing implementation incrementally. Retain React, FastAPI, SQLite, the player adapter, deterministic server-side scoring, and local speech recognition. A framework rewrite or new cloud backend is unnecessary.
 
@@ -26,14 +26,13 @@ Older decisions D-016 and D-020 document no-autoplay/manual-next behavior. The n
 | Existing frontend suite: `npm --prefix frontend test` | **98 tests passed across 12 files.** Also emitted React `act(...)` warnings and attempted real localhost API requests in some component tests. |
 | `npm --prefix frontend run typecheck` | Passed. |
 | Vite production build, output redirected to a temporary directory | Passed; 1,647 modules transformed. |
-| Backend suites for alignment, assessment, database, segmentation, and YouTube URL parsing | **44 tests passed.** |
 | Five temporary frontend diagnostic tests | All five reproduced defective behavior in F-01, F-03, F-04, and F-07. They demonstrate bugs, not fixes. |
 | Backend probes using actual router/service functions and isolated SQLite | Reproduced wrong idempotency replay, copy-after-reveal completion, cleanup failure, invalid clamped timestamps, removal of parenthetical speech, and an uncaught invalid-port exception. |
 | Full backend suite excluding live network/GPU inference tests | Attempted, then stopped after stalling. A focused retry with a stack dump blocked inside Windows `socket.socketpair()` / asyncio initialization while entering `TestClient`, before request processing. The full HTTP suite is **not verified** here. |
 
 The first attempt to redirect the npm build output passed the output directory incorrectly as Vite's project root. Invoking Vite directly with the correct argument succeeded. This was a verification-command issue, not a project build defect.
 
-No live YouTube playback, real microphone recording, GPU transcription, Gemini request, or local LLM inference was certified in this review. Browser policies and real subtitle/audio synchronization still require the acceptance checks below. Existing benchmark/browser claims in `docs/` are historical claims, not independently reproduced results.
+No live local video playback, real microphone recording, GPU transcription, Gemini request, or local LLM inference was certified in this review. Browser policies and real subtitle/audio synchronization still require the acceptance checks below. Existing benchmark/browser claims in `docs/` are historical claims, not independently reproduced results.
 
 Evidence labels:
 
@@ -44,7 +43,6 @@ Evidence labels:
 
 ### Foundation worth retaining
 
-Deterministic backend scoring with cross-language fixtures; SQLite foreign keys/WAL and transactional writes; canonicalized YouTube URLs; serialized background ASR work; the testable player adapter and cutoff calculations; structured tutor output rendered as React text; and the distinction between ASR practice feedback and phonetic pronunciation assessment are all useful foundations.
 
 ## 3. Priorities
 
@@ -265,7 +263,6 @@ A matching `client_request_id` returns a job without checking kind, segment, or 
 
 ### F-17 — Segmentation can invalidate bounds or remove real speech
 
-**Locations:** `backend/app/services/segmenter.py:16–19,48,191,209–236,325–349`; `youtube_service.py` (`handle_ingest_job`).
 
 Confirmed issues:
 
@@ -304,17 +301,16 @@ Each segment lazily loads its dictation/shadowing attempt relationships and calc
 
 ### F-20 — Player recovery and seek state need strengthening
 
-**Locations:** `frontend/src/player/youtubeApiLoader.ts`; `useSegmentPlayback.ts:180–205,260–285,319–339`; `useYouTubePlayer.ts`.
 
 After script failure, the loader clears its promise but leaves the failed script element. A retry sees that element and waits for a callback that may never occur. There is no readiness timeout or normal retry UI.
 
-Play's initial-seek flag clears when time is merely beyond the start, without an upper-bound or timeout check like Replay's guard. A delayed backward seek can report the previous late timestamp and be classified as manual scrubbing. This is a code-level race risk needing an asynchronous adapter test and real-browser confirmation, not a reproduced live-YouTube failure.
+Play's initial-seek flag clears when time is merely beyond the start, without an upper-bound or timeout check like Replay's guard. A delayed backward seek can report the previous late timestamp and be classified as manual scrubbing. This is a code-level race risk needing an asynchronous adapter test and real-browser confirmation, not a reproduced native playback failure.
 
 Current wiring does not expose `onAutoplayBlocked`; a requested play is not proof of actual playback.
 
-**Change:** Implement recoverable API loading with timeout/clean reinjection. Unify bounded seek readiness/cancellation. Distinguish requested play, observed PLAYING, buffering, blocked, and error. Handle the real autoplay-blocked event with one useful Resume action, not repeated play commands.
+**Change:** Report native media load and playback errors clearly. Unify bounded seek readiness/cancellation. Distinguish requested play, observed PLAYING, buffering, blocked, and error. Handle rejected native play requests with a useful Play action.
 
-**Acceptance:** Script failure retries without reload; delayed seeks preserve cutoff monitoring; playback uses the correct segment; blocked playback retains progress/draft. Do not promise autoplay under every browser policy.
+**Acceptance:** Local playback errors remain actionable; delayed seeks preserve cutoff monitoring; playback uses the correct segment; blocked playback retains progress/draft. Do not promise autoplay under every browser policy.
 
 ### F-21 — Green tests miss lifecycle and isolation failures
 
@@ -334,7 +330,7 @@ Current wiring does not expose `onAutoplayBlocked`; a requested play is not proo
 
 ### F-22 — Documentation and configuration drift
 
-**Locations:** README; `docs/implementation-status.md`; `docs/validation.md`; backend config/YouTube service; scripts; `.gitignore`.
+**Locations:** README; `docs/implementation-status.md`; `docs/validation.md`; backend config/local media service; scripts; `.gitignore`.
 
 - “No remaining P0/P1/P2 defects” is contradicted by this review.
 - README says Myers diff; the source implements token-level Levenshtein.
@@ -346,13 +342,12 @@ Current wiring does not expose `onAutoplayBlocked`; a requested play is not proo
 - Library lists only the first 50 videos without pagination.
 - Ignore rules do not comprehensively exclude model files and recordings under `backend/data/`; avoid committing binaries or personal recordings.
 
-**Additional small validation defect:** `parse_youtube_url` reads `parsed.port` outside its exception guard. `https://youtube.com:notaport/watch?v=aaaaaaaaaaa` raises ValueError rather than the intended input error. Catch malformed/out-of-range ports and return the canonical 422 response.
 
 **Change:** Reconcile docs after repairs, use consumed settings, regenerate API snapshots, verify one setup path, and separate local ASR from local language-model explanations. Do not expose environment secrets in diagnostics/docs.
 
 **Acceptance:** Fresh setup works as documented; settings/limits are truthful; counts reflect current runs; malformed URLs produce useful errors; Anki remains excluded.
 
-## 5. Target experience: continuous YouTube dictation
+## 5. Target experience: continuous video dictation
 
 This section specifies proposed behavior, not existing functionality.
 
@@ -544,9 +539,9 @@ New vocabulary/correction tables require versioned migrations and backups. `crea
 
 ### Real-user walkthrough before declaring completion
 
-Use a short real YouTube video with clear English and at least ten segments. Complete several without Next/Play after success; make errors; use a hint; reveal/retry; look up a word and phrase; change speed; revisit a sentence; refresh; briefly disconnect the backend; finish the lesson. Then cancel microphone permission and make an actual recording on another sentence.
+Use a short real local video file with clear English and at least ten segments. Complete several without Next/Play after success; make errors; use a hint; reveal/retry; look up a word and phrase; change speed; revisit a sentence; refresh; briefly disconnect the backend; finish the lesson. Then cancel microphone permission and make an actual recording on another sentence.
 
-Record actual observations, including autoplay restrictions and transcript mismatches. Mock-player success alone does not establish a comfortable YouTube experience.
+Record actual observations, including autoplay restrictions and transcript mismatches. Mock-player success alone does not establish a comfortable local video experience.
 
 ## 9. Guardrails for the implementing AI
 
@@ -564,7 +559,6 @@ Record actual observations, including autoplay restrictions and transcript misma
 These support API/lifecycle design details. Project findings are grounded in local code and probes above.
 
 - [React useEffect reference](https://react.dev/reference/react/useEffect): cleanup precedes new setup when dependencies change; development StrictMode adds a setup/cleanup cycle.
-- [YouTube IFrame Player API reference](https://developers.google.com/youtube/iframe_api_reference): playback events, seeking, and `onAutoplayBlocked`.
 - [Ollama structured outputs](https://docs.ollama.com/capabilities/structured-outputs): local requests using a JSON schema in `format`, followed by application-side validation.
 
 **No fixes in this handoff have been implemented by the reviewer.**

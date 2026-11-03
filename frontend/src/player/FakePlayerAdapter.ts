@@ -1,5 +1,4 @@
 import { PlayerAdapter, PlayerError, PlayerState } from './types';
-import { formatYouTubeError } from './YouTubePlayerAdapter';
 
 export class FakePlayerAdapter implements PlayerAdapter {
   videoId: string;
@@ -74,24 +73,6 @@ export class FakePlayerAdapter implements PlayerAdapter {
     this.emitPlaybackRateChange(rate);
   }
 
-  cueVideoById(videoId: string, startSeconds: number = 0): void {
-    if (this.isDestroyed) return;
-    this.videoId = videoId;
-    this.currentTime = startSeconds;
-    this.state = PlayerState.CUED;
-    this.cuedVideos.push({ videoId, startSeconds });
-    this.emitStateChange(PlayerState.CUED);
-  }
-
-  loadVideoById(videoId: string, startSeconds: number = 0): void {
-    if (this.isDestroyed) return;
-    this.videoId = videoId;
-    this.currentTime = startSeconds;
-    this.state = PlayerState.PLAYING;
-    this.loadedVideos.push({ videoId, startSeconds });
-    this.emitStateChange(PlayerState.PLAYING);
-  }
-
   destroy(): void {
     this.isDestroyed = true;
     this.readyListeners = [];
@@ -157,7 +138,7 @@ export class FakePlayerAdapter implements PlayerAdapter {
   }
 
   emitError(errorCode: number): void {
-    const error = formatYouTubeError(errorCode, this.videoId);
+    const error = { code: errorCode, message: 'Video playback failed.', videoUrl: '' };
     this.errorListeners.forEach((l) => l(error));
   }
 

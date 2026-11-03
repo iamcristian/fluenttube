@@ -1,6 +1,7 @@
 import uuid
 from datetime import datetime, timezone
 from typing import List, Optional
+from sqlalchemy import Column, String
 from sqlmodel import Field, Relationship, SQLModel, UniqueConstraint
 
 def utc_now() -> datetime:
@@ -10,7 +11,8 @@ class Video(SQLModel, table=True):
     __tablename__ = "video"
 
     id: Optional[int] = Field(default=None, primary_key=True)
-    youtube_id: str = Field(unique=True, index=True, nullable=False)
+    # Retain the historical column name so existing libraries need no destructive migration.
+    source_key: str = Field(sa_column=Column("youtube_id", String, unique=True, index=True, nullable=False))
     title: str = Field(nullable=False)
     channel: Optional[str] = Field(default=None)
     duration_seconds: float = Field(gt=0, nullable=False)
@@ -194,7 +196,7 @@ class Job(SQLModel, table=True):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()), primary_key=True)
     client_request_id: str = Field(unique=True, index=True, nullable=False)
     request_hash: str = Field(index=True, nullable=False)
-    kind: str = Field(nullable=False, description="ingest | shadowing")
+    kind: str = Field(nullable=False, description="local_ingest | shadowing")
     status: str = Field(
         default="queued",
         nullable=False,

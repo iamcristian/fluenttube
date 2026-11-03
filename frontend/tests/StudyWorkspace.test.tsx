@@ -135,7 +135,7 @@ describe('StudyPage Workspace Integration', () => {
 
   const mockVideoDetail: VideoDetailDTO = {
     id: 5,
-    youtube_id: 'jNQXAC9IVRw',
+    source_key: 'jNQXAC9IVRw',
     title: 'Me at the zoo - Practice Audio Clip',
     channel: 'jawed',
     duration_seconds: 19.0,

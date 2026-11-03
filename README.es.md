@@ -40,13 +40,13 @@ Copia el archivo de configuración solo durante la primera instalación. Despué
 
 ## Cómo practicar
 
-1. En **Import Video → Video file**, elige un MP4 o WebM con voz clara en inglés.
+1. En **Import Video**, elige un MP4 o WebM con voz clara en inglés.
 2. Espera la transcripción. El primer uso puede descargar el modelo de voz.
 3. Recorre **Listen**, **Write** y **Speak** a tu ritmo.
 
 El límite inicial es **60 minutos / 250 MiB**. Puedes buscar videos, filtrar los completados, retomar una práctica o quitar un video con **Remove**. La eliminación pide confirmación y borra el progreso y las copias que guarda la app.
 
-La transcripción de archivos se hace en tu computadora. Las importaciones largas guardan avances por partes para poder continuar después de un reinicio. Los enlaces de YouTube dependen de las restricciones de ese servicio; también puedes usar un archivo local.
+La transcripción de archivos se hace en tu computadora. Las importaciones largas guardan avances por partes para poder continuar después de un reinicio.
 
 ## Configuración y privacidad
 

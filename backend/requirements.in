@@ -10,9 +10,6 @@ sqlmodel>=0.0.22,<0.1.0
 pytest>=8.3.0,<9.0.0
 httpx>=0.27.0,<0.29.0
 
-# Video ingestion & subtitles
-youtube-transcript-api>=0.6.2,<0.7.0
-yt-dlp[default]>=2026.10.21
 
 # Speech recognition (ASR)
 faster-whisper>=1.1.0,<2.0.0

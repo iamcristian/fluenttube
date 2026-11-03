@@ -145,7 +145,7 @@ def test_dto_verification_no_internal_entity_leaks():
     # Test Video entity vs VideoSummaryDTO
     video_entity = Video(
         id=1,
-        youtube_id="abc123xyz78",
+        source_key="abc123xyz78",
         title="Test Video",
         duration_seconds=120.0,
         transcription_source="captions_manual",
@@ -155,4 +155,4 @@ def test_dto_verification_no_internal_entity_leaks():
     video_dto = VideoSummaryDTO.model_validate(video_entity)
     dumped_video = video_dto.model_dump()
     assert "audio_relative_path" not in dumped_video
-    assert dumped_video["youtube_id"] == "abc123xyz78"
+    assert dumped_video["source_key"] == "abc123xyz78"

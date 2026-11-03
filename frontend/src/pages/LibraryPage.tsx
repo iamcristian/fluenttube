@@ -375,7 +375,7 @@ export const LibraryPage: React.FC<LibraryPageProps> = ({
                 Your study library is empty
               </h3>
               <p className="text-sm text-text-secondary mt-3 mb-6 max-w-md mx-auto leading-relaxed">
-                Paste any YouTube link with English subtitles to get started. A
+                Upload an MP4 or WebM file with English speech to get started. A
                 short video about something you enjoy is a great first choice.
               </p>
               <button className="primary-button mx-auto" onClick={openImport}>
@@ -418,12 +418,7 @@ export const LibraryPage: React.FC<LibraryPageProps> = ({
                 return (
                   <article key={v.id} className="video-card group">
                     <div className="relative aspect-video bg-surface-raised overflow-hidden">
-                      {v.source_type === 'local' ? <div className="w-full h-full flex flex-col items-center justify-center gap-3 bg-gradient-to-br from-accent/10 to-background text-accent"><Film size={40} /><span className="text-sm">Local video · no YouTube connection</span></div> : <img
-                        src={`https://img.youtube.com/vi/${v.youtube_id}/mqdefault.jpg`}
-                        alt=""
-                        loading="lazy"
-                        className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
-                      />}
+                      <div className="w-full h-full flex flex-col items-center justify-center gap-3 bg-gradient-to-br from-accent/10 to-background text-accent"><Film size={40} /><span className="text-sm">{v.source_type === 'unavailable' ? 'Media unavailable' : 'Local video'}</span></div>
                       <span className="absolute bottom-3 right-3 bg-black/80 text-white rounded-md text-xs px-2 py-1 tabular-nums">
                         {formatDuration(v.duration_seconds)}
                       </span>
@@ -449,7 +444,7 @@ export const LibraryPage: React.FC<LibraryPageProps> = ({
                     </div>
                     <div className="p-5 flex flex-col flex-1">
                       <p className="text-xs text-text-secondary mb-2">
-                        {v.channel || 'YouTube video'}
+                        {v.channel || 'Video'}
                       </p>
                       <h3
                         className="font-semibold leading-snug line-clamp-2 mb-5"

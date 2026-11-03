@@ -352,10 +352,10 @@ export const StudyPage: React.FC<StudyPageProps> = ({
               aria-label="Video Player and Segment Navigation"
               className="lg:col-span-5 flex flex-col space-y-4 min-w-0"
             >
-              {/* YouTube Video Player */}
+              {/* Local Video Player */}
               <VideoPlayer
                 ref={playerRef}
-                videoId={video.youtube_id}
+                videoId={video.source_key}
                 mediaUrl={video.source_type === 'local' ? apiClient.getVideoMediaUrl(video.id) : undefined}
                 title={video.title}
                 startSeconds={activeSegment?.start_seconds ?? 0}

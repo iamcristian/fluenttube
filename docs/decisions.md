@@ -38,8 +38,8 @@ This document records architectural, technical, and environment decisions in acc
 - **Status**: Fulfilled (Verified in System PATH)
 - **Affected Sections**: Section 3.1, Section 6.1, Section 10.2, Section 13.2
 - **Observed Fact**: Gyan.FFmpeg installed via winget (`ffmpeg.exe` and `ffprobe.exe` verified in PATH). Health endpoint `/api/health` now reports `ffmpeg_available: true`.
-- **Decision**: Verified genuine FFmpeg binaries in PATH for yt-dlp metadata/audio processing and backend audio conversion.
-- **Rationale**: Required by yt-dlp and backend audio conversion services (16 kHz mono PCM).
+- **Decision**: Verified genuine FFmpeg binaries in PATH for local video processing and backend audio conversion.
+- **Rationale**: Required by local media and backend audio conversion services (16 kHz mono PCM).
 
 
 ---
@@ -119,51 +119,17 @@ This document records architectural, technical, and environment decisions in acc
 
 ---
 
-### D-012: Deterministic Segmentation and URL Validation Policies
-- **Date**: 2026-10-23
-- **Status**: Accepted
-- **Affected Sections**: Section 6.2, Section 6.4, Section 14 (T05)
-- **Decision**:
-  - `parse_youtube_url()` implements Section 6.2 strictly: exact domain validation, port/credential restrictions, multi-format ID extraction (`watch`, `youtu.be`, `shorts`, `embed`), and regex `^[A-Za-z0-9_-]{11}$`.
-  - `segment_fragments()` implements Section 6.4 rules: HTML entity decoding, bracketed/symbolic non-verbal noise removal, gap flush (>1.2s with 3-decimal rounding to eliminate IEEE 754 float drift), max threshold flushing (>18 words or >10.0s), rolling caption overlap removal (>=3 tokens), and sentence-boundary flushing with abbreviation (`Dr.`, `Mr.`, `e.g.`) and decimal exclusion.
-  - Golden fixtures persisted in `shared/fixtures/segmentation.json`.
-- **Rationale**: Guarantees deterministic, reproducible sentence segmentation across manual and automatic subtitle streams.
+### D-012: Deterministic Segmentation
 
----
+- **Decision**: Segment local ASR word timestamps into practice sentences. Keep segmentation deterministic and cover punctuation, gaps and bounds with fixtures.
 
-### D-013: Subtitle Ingestion, Caching, and Atomic Persistence Policies
-- **Date**: 2026-10-23
-- **Status**: Accepted
-- **Affected Sections**: Section 4.3.1, Section 5.2, Section 6.3, Section 14.7 (T06)
-- **Decision**:
-  - `fetch_video_metadata` uses `yt-dlp` in metadata-only mode without downloading media. Rejects active live streams (400 `LIVE_STREAM_UNSUPPORTED`), invalid/non-positive duration (400 `INVALID_VIDEO_METADATA`), and duration > 1800s (400 `VIDEO_TOO_LONG`).
-  - `fetch_video_subtitles` queries `YouTubeTranscriptApi`. Manual English subtitles (`en`, `en-*`) are preferred over auto subtitles (`captions_manual` vs `captions_auto`). Videos lacking English subtitles return 404 `SUBTITLES_NOT_FOUND`.
-  - Caching policy on `POST /api/videos/ingest`:
-    - Cache hit (`force=False`): Returns 200 `{video_id, status: "completed", cached: true}` immediately without re-enqueuing.
-    - Existing video (`force=True`): Returns 409 `VIDEO_ALREADY_EXISTS`. V1 does not overwrite transcripts.
-    - In-progress video: Returns 409 `INGEST_IN_PROGRESS` with `existing_job_id`. Identical `client_request_id` retry returns the active job (202).
-  - Atomic persistence (Invariant 4.3.1): `Video` and all `Segment` records are committed in a single database transaction. If segment insertion fails, the entire transaction rolls back, leaving no orphaned video records.
-  - Video library endpoints:
-    - `GET /api/videos`: Paginated (`limit`, `offset`), sorted by `last_opened_at DESC NULLS LAST, id DESC`, with `segment_count` and `completed_count` aggregates.
-    - `GET /api/videos/{id}`: Detailed video with segments sorted by `position ASC`, completed/revealed/shadowing_unlocked flags, and best scores.
-    - `PATCH /api/videos/{id}/progress`: Validates segment ownership (400 `INVALID_SEGMENT_ID` if mismatched) and updates `last_segment_id` and `last_opened_at`.
-- **Rationale**: Strict conformance to Section 4.3, Section 5.2, Section 6.3, and Gate G0 requirements.
+### D-013: Local Ingestion and Atomic Persistence
 
----
+- **Decision**: Accept validated MP4/WebM uploads, store an app-owned copy, and queue local transcription. Save video, local-media ownership and sentences atomically.
 
-### D-014: Frontend Library, Import Modal, and State Recovery Architecture
-- **Date**: 2026-10-23
-- **Status**: Accepted
-- **Affected Sections**: Section 6.1, Section 8.1, Section 14.8 (T07)
-- **Decision**:
-  - `LibraryPage` consumes `GET /api/videos` via TanStack Query. Renders empty guide when library is empty; renders responsive grid (1/2/3 cols for 390px, 768px, 1440px) of cards with thumbnails, duration, sentence completion count and percentages, and direct CTA to study view.
-  - `VideoLoaderModal` manages YouTube URL input, double-click protection (disabled during submission), immediate navigation on 200 cache hit, and background job polling on 202 accepted.
-  - `useJob` hook polls `GET /api/jobs/{job_id}` at 1000 ms intervals while job is queued or running, halting immediately on terminal status (`succeeded` or `failed`).
-  - Active pending job IDs are persisted in `localStorage` under `fluenttube_pending_job_id`. On browser refresh, `LibraryPage` recovers the active job and re-opens the progress modal seamlessly.
-  - Modal dismissal guard: closing the modal does not abort the background worker on the server; if the user closed the modal before the job completes, unwanted client navigation is prevented while the video updates in the library.
-- **Rationale**: Strict adherence to Section 6.1 and Section 14.8 acceptance criteria without production mocks.
+### D-014: Library, File Import, and Recovery
 
----
+- **Decision**: The import modal selects a file, validates basic limits, polls processing and offers recovery for saved local imports. Library progress stays in SQLite.
 
 ### D-015: Workspace Layout, Segment Selection, Answer Concealment, and Navigation State Architecture
 - **Date**: 2026-10-23
@@ -186,21 +152,9 @@ This document records architectural, technical, and environment decisions in acc
 
 ---
 
-### D-016: YouTube Player Adapter, Singleton API Loader, and Error Recovery Architecture
-- **Date**: 2026-10-23
-- **Status**: Accepted
-- **Affected Sections**: Section 9.1, Section 9.2, Section 9.3, Section 9.4, Section 9.15, Section 14.10 (T09)
-- **Decision**:
-  - `PlayerAdapter` interface decouples player API loading from segment playback loop logic, providing `play`, `pause`, `seekTo`, `getCurrentTime`, `getDuration`, `getState`, `getAvailablePlaybackRates`, `getPlaybackRate`, `setPlaybackRate`, `cueVideoById`, `loadVideoById`, `destroy`, and event subscriptions (`onReady`, `onStateChange`, `onPlaybackRateChange`, `onError`).
-  - `loadYouTubeIframeApi` provides singleton Promise loader that injects `https://www.youtube.com/iframe_api` at most once, queues concurrent consumers cleanly without overwriting external callbacks, and resolves synchronously if `window.YT` is already defined.
-  - `useYouTubePlayer` enforces React 18 StrictMode compliance: guarantees exactly one player instance per mount, cleanly cleans up unmounted instances, and prevents duplicate iframes or dangling listeners.
-  - Origin security and autoplay policy: passes `origin: window.location.origin` and strictly disables initial autoplay (`autoplay: 0`), requiring explicit user interaction per Section 9.4.
-  - Video switching: updates to `videoId` invoke `cueVideoById` without triggering unintended autoplay.
-  - Error handling: `formatYouTubeError` maps code 101/150 (embedding restricted by creator) to clear explanatory overlay with direct "Watch on YouTube" link (`https://www.youtube.com/watch?v={videoId}`); maps codes 2, 5, 100 with clear corrective descriptions.
-  - `FakePlayerAdapter` implemented and verified for offline unit testing without external network dependencies.
-- **Rationale**: Strict adherence to Section 9 and Section 14.10 requirements.
+### D-016: Native Local Video Player
 
----
+- **Decision**: Use a native HTML video element through LocalVideoAdapter and useVideoPlayer. Keep sentence playback controls independent through PlayerAdapter. Display unavailable media without contacting external video services.
 
 ### D-017: Segment Playback Temporal Boundary Clamping, Seek Guard, and Looping Architecture
 - **Date**: 2026-10-23
@@ -317,7 +271,7 @@ This document records architectural, technical, and environment decisions in acc
     - Object URL lifecycle is strictly tracked and revoked via `URL.revokeObjectURL` on unmount and when re-recording, preventing memory leaks.
     - Immediate hardware release: upon recording stop (`mediaRecorder.stop()`) or component unmount, all `MediaStreamTrack` hardware tracks are immediately stopped via `track.stop()`, turning off browser mic indicators without waiting for page navigation.
   - **Player Coordination & Navigation Guarding**:
-    - Prior to media capture start (`onBeforeStart`), the YouTube video player is explicitly paused to prevent audio bleed into the mic recording.
+    - Prior to media capture start (`onBeforeStart`), the local video player is explicitly paused to prevent audio bleed into the mic recording.
     - Active recording synchronizes with global `useStudyStore.setIsRecording(true/false)`. Navigation away from the current segment triggers the `showRecordingWarning` dialog, protecting users against accidental audio loss.
     - Clear user-facing error messaging for `NotAllowedError`/`PermissionDeniedError` ("Microphone permission was denied. Please allow microphone access in your browser site settings and try again.") and `NotFoundError` ("No microphone device found.").
   - **Shadowing Studio UI (`ShadowingStudio.tsx`)**:
@@ -329,7 +283,7 @@ This document records architectural, technical, and environment decisions in acc
   - **Testing & Verification**:
     - 12 comprehensive unit and integration tests in `frontend/tests/ShadowingStudio.test.tsx` verifying locked state, unlocked state, listen callback, player pause on recording start, MediaRecorder lifecycle, hardware track release (`track.stop()`), navigation guard synchronization, 30s auto-stop cutoff, object URL revocation, and permission/hardware error handling.
     - 77/77 passing Vitest tests across 10 test files; 83/83 passing Pytest tests across 9 suites; 0 TypeScript errors.
-- **Rationale**: Strict compliance with Section 8.2 and Section 14.15 requirements, guaranteeing proper hardware resource cleanup, memory safety, and seamless integration between YouTube playback and speech capture.
+- **Rationale**: Strict compliance with Section 8.2 and Section 14.15 requirements, guaranteeing proper hardware resource cleanup, memory safety, and seamless integration between local playback and speech capture.
 
 ---
 
@@ -433,37 +387,9 @@ This document records architectural, technical, and environment decisions in acc
 
 ---
 
-### D-025: Ingestion ASR Fallback, Word-Boundary Segmentation, Audio Caching, and Atomic Persistence
-- **Date**: 2026-10-23
-- **Status**: Accepted
-- **Affected Sections**: Section 6.3, Section 6.4, Section 8.2, Section 10.3, Section 14.19 (T18)
-- **Decision**:
-  - **Ingestion ASR Fallback Orchestration (`youtube_service.py`)**:
-    - When YouTube English captions (manual or auto-generated) are missing (`SUBTITLES_NOT_FOUND`) OR when explicit `force_gpu_whisper=True` is provided via ingestion payload, the ingestion pipeline automatically invokes the local ASR fallback pipeline instead of failing.
-    - Strict Section 6.3 Rule 7 preservation: unpunctuated captions DO NOT trigger audio download or ASR fallback; they proceed directly through caption deduplication and regex boundary heuristics.
-  - **Audio Download & Local Cache**:
-    - `download_youtube_audio()` extracts best audio stream via `yt-dlp`, converts to `.m4a`/`.mp3` using FFmpeg, and caches at `media_cache/audio/<youtube_id>.<ext>`.
-    - Employs atomic write via `.part` temporary files, preventing incomplete audio reads.
-    - Enforces 250 MiB file size safety ceiling and skips re-downloading if valid cached audio is already present.
-  - **Word-Boundary ASR Segmentation (`segmenter.py`)**:
-    - Implemented `segment_asr_result()` strictly complying with Section 6.4:
-      * Clamps segment boundaries strictly to word edges (`start = words[0].start`, `end = words[-1].end`).
-      * Natural pause splits on inter-word silence gaps > 1.2s.
-      * Maximum segment size threshold of 18 words or 10.0s duration.
-      * Punctuation splits on terminal marks (`.`, `?`, `!`) preserving common abbreviations (`Mr.`, `Dr.`, `U.S.`) and decimal numbers.
-      * Records `timing_quality="word"` for fine-grained playback synchronization.
-  - **Atomic Transaction Rollback & Invariant 4.3.1**:
-    - All video metadata, segment records, and relative audio file paths are committed atomically.
-    - If audio download fails, Whisper model fails to load (`MODEL_UNAVAILABLE`), or segmentation fails, the database transaction is cleanly rolled back and job state marked `failed`. Zero orphaned video or segment records are created.
-  - **Frontend Ingestion Controls & Badge Differentiation**:
-    - `VideoLoaderModal.tsx`: Added Section 8.2 checkbox "Use local transcription for this new video" (`force_gpu_whisper`), granular ASR job progress stage indicators (`downloading_audio`, `loading_model`, `transcribing`, `segmenting`, `saving`), and descriptive error messaging.
-    - `LibraryPage.tsx`: Renders distinct sky-accented `'Local ASR'` badge when `transcription_source === 'local_asr'` alongside standard duration and level indicators.
-  - **Testing & Verification**:
-    - Added 5 comprehensive integration tests in `backend/tests/test_videos.py` covering captionless fallback, forced ASR bypassing subtitles, download failure rollback, model unavailable rollback, and unpunctuated subtitle preservation.
-    - 109/109 Pytest tests passing across 11 suites; 79/79 Vitest tests passing across 10 suites; 0 TypeScript errors; bundle built in 2.38s.
-- **Rationale**: Strict compliance with Section 6.3, Section 6.4, Section 8.2, Section 10.3, and Section 14.19 (T18) requirements.
+### D-025: Checkpointed Local ASR
 
----
+- **Decision**: Transcribe stored media with the local speech engine. Save completed chunks and resume interrupted local jobs from their checkpoints.
 
 ### D-026: Speech Feedback Assessment, Display Token Badge Grouping, Attempt Persistence, and Segment Isolation
 - **Date**: 2026-10-23
@@ -642,7 +568,7 @@ This document records architectural, technical, and environment decisions in acc
     - Dynamically injects project root into `sys.path` to ensure reliable standalone execution regardless of invocation directory.
     - Evaluates: Python compatibility, FFmpeg & ffprobe availability, CTranslate2 version, CUDA device count, NVIDIA GPU name & VRAM, CPU & CUDA compute types (including `int8_float16`), SQLite database connectivity (`init_db`), cached Faster-Whisper models, and AI tutor configuration status.
   - **Top-Level `README.md`**:
-    - Complete, production-grade documentation detailing project overview, multi-modal pedagogical workflow (Dictation, Shadowing, Contextual Tutor), system requirements, one-click Windows launcher, manual setup, testing commands, configuration options, documented operational limits (ASR, YouTube, Tutor), and troubleshooting FAQ.
+    - Complete, production-grade documentation detailing project overview, multi-modal pedagogical workflow (Dictation, Shadowing, Contextual Tutor), system requirements, one-click Windows launcher, manual setup, testing commands, configuration options, documented operational limits (ASR, local media, Tutor), and troubleshooting FAQ.
   - **Testing & Verification**:
     - 4 dedicated unit tests in `backend/tests/test_scripts.py` verifying diagnostic report structure, occupied port collision detection and non-destructive guard, PID tracking with owned process termination, and process identity verification guarding unrelated system processes.
     - Total test suite: 135/135 passing Pytest tests across 13 suites; 98/98 passing Vitest tests across 12 suites; 0 TypeScript errors; bundle built in 2.37s.
@@ -734,7 +660,7 @@ This document records architectural, technical, and environment decisions in acc
     - Multi-tier dictionary lookup: Local SQLite `DictionaryCache` table first (0 ms), Free Dictionary API secondary fallback, and Datamuse API (`api.datamuse.com`) tertiary fallback.
     - Captures British IPA phonetics (`phonetic_uk`), definitions, parts of speech, and usage examples.
   - **Unified 3-Column Responsive Workspace (`StudyPage.tsx`)**:
-    - Left column (`lg:col-span-5 xl:col-span-4`): YouTube player with video bounds clamping + Anti-spoiler transcript with masked dots.
+    - Left column (`lg:col-span-5 xl:col-span-4`): local video player with video bounds clamping + Anti-spoiler transcript with masked dots.
     - Center column (`lg:col-span-7 xl:col-span-5`): Live reactive dictation box with keyboard hints and docked Shadowing Studio.
     - Right column (`lg:col-span-12 xl:col-span-3`): Fixed British Study Inspector with instant click-to-lookup dictionary, British pronunciation audio player, and B2 Connected Speech Tutor tab.
 - **Rationale**: Eliminates dictation interaction friction (matching the fluidity of FluentDictation) while maintaining 100% free, zero-VRAM, zero-token local operation for vocabulary and audio lookups.

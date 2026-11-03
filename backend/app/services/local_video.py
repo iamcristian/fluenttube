@@ -1,4 +1,4 @@
-"""Local-only video ingestion. This module never requests YouTube or browser sessions."""
+"""Local video ingestion with on-device transcription."""
 import math
 import json
 import shutil
@@ -182,7 +182,7 @@ def handle_local_ingest_job(job_id: str, payload: dict, update_progress: Callabl
     active_engine = engine or default_engine
     # A process can stop after the video commit but before its job is marked complete.
     with Session(active_engine) as session:
-        existing = session.exec(select(Video).where(Video.youtube_id == payload["source_key"])).first()
+        existing = session.exec(select(Video).where(Video.source_key == payload["source_key"])).first()
         if existing:
             return {"video_id": existing.id, "segment_count": len(existing.segments), "transcription_source": existing.transcription_source}
     path = local_media_path(payload["file_relative_path"])
@@ -191,7 +191,7 @@ def handle_local_ingest_job(job_id: str, payload: dict, update_progress: Callabl
         raise AppException(code="SEGMENTATION_EMPTY", message="No English speech was found. Try a video with clear spoken English.", status_code=422)
     update_progress("saving", 0.95)
     with Session(active_engine) as session:
-        video = Video(youtube_id=payload["source_key"], title=payload["title"], channel="Local video", duration_seconds=payload["duration"], transcription_source="local_asr", audio_relative_path=payload["file_relative_path"])
+        video = Video(source_key=payload["source_key"], title=payload["title"], channel="Local video", duration_seconds=payload["duration"], transcription_source="local_asr", audio_relative_path=payload["file_relative_path"])
         session.add(video)
         session.flush()
         session.add(LocalVideoMedia(video_id=video.id, file_relative_path=payload["file_relative_path"]))

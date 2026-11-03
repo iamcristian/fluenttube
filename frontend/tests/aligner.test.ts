@@ -108,3 +108,17 @@ describe('Shared Normalizer and Aligner (TypeScript)', () => {
     expect(res2.distance).toBe(0);
   });
 });
+
+
+describe('Hyphenated words', () => {
+  it('preserves compounds as a single display word and accepts hyphen variants', () => {
+    for (const word of ['passer-by', 'passer\u2010by', 'passer\u2011by', 'mother-in-law']) {
+      const norm = normalizeText(word);
+      expect(norm.display_tokens).toHaveLength(1);
+      expect(norm.display_tokens[0].canonical_indices.length).toBe(word === 'mother-in-law' ? 3 : 2);
+      expect(align(word, word.replace(/[-\u2010\u2011]/g, ' ')).is_exact).toBe(true);
+    }
+    expect(align('passer-by', 'passer').is_exact).toBe(false);
+    expect(normalizeText('hello\u2014world').display_tokens).toHaveLength(2);
+  });
+});

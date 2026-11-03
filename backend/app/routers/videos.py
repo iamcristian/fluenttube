@@ -1,7 +1,5 @@
 import json
-import uuid
-from typing import Optional
-from fastapi import APIRouter, Depends, Query, Response, status
+from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy import delete
 from sqlmodel import Session, col, func, select
 
@@ -9,8 +7,6 @@ from backend.app.database import get_session
 from backend.app.errors import AppException
 from backend.app.models import Job, Segment, Video, LocalVideoMedia, TutorCache, VocabularyCache, utc_now
 from backend.app.schemas import (
-    IngestRequestDTO,
-    IngestResponseDTO,
     PaginatedResponse,
     SegmentDTO,
     VideoDetailDTO,
@@ -19,95 +15,10 @@ from backend.app.schemas import (
     VideoSummaryDTO,
 )
 from backend.app.services.jobs import job_runner
-from backend.app.services.youtube_service import parse_youtube_url
-from backend.app.services.youtube_access import ensure_youtube_import_allowed
 from backend.app.services.local_video import local_media_path
 from backend.app.services.audio_service import safe_cleanup
 
 router = APIRouter(tags=["videos"])
-
-@router.post(
-    "/videos/ingest",
-    response_model=IngestResponseDTO,
-    status_code=status.HTTP_200_OK,
-)
-def ingest_video(
-    req: IngestRequestDTO,
-    response: Response,
-    session: Session = Depends(get_session),
-) -> IngestResponseDTO:
-    # 1. Validate YouTube URL
-    youtube_id = parse_youtube_url(req.url)
-
-    # 2. Check if video already exists in database
-    existing_video = session.exec(
-        select(Video).where(Video.youtube_id == youtube_id)
-    ).first()
-
-    if existing_video:
-        if not req.force:
-            # Cache hit: return 200 with video_id
-            return IngestResponseDTO(
-                job_id=None,
-                video_id=existing_video.id,
-                status="completed",
-                cached=True,
-            )
-        else:
-            # Force=true on existing video: 409 VIDEO_ALREADY_EXISTS (Section 6.3, 14.7)
-            raise AppException(
-                code="VIDEO_ALREADY_EXISTS",
-                message="This video has already been ingested. Re-ingestion without prior deletion is not supported in V1.",
-                status_code=status.HTTP_409_CONFLICT,
-                retryable=False,
-                details={"video_id": existing_video.id},
-            )
-
-    # 3. Check if there is an in-progress ingest job for this video
-    active_jobs = session.exec(
-        select(Job).where(Job.kind == "ingest", Job.status.in_(["queued", "running"]))
-    ).all()
-
-    for job in active_jobs:
-        try:
-            job_payload = json.loads(job.payload_json)
-            if job_payload.get("youtube_id") == youtube_id:
-                # If exact client_request_id matches, allow idempotent return
-                if req.client_request_id and job.client_request_id == req.client_request_id:
-                    response.status_code = status.HTTP_202_ACCEPTED
-                    return IngestResponseDTO(
-                        job_id=job.id,
-                        video_id=None,
-                        status=job.status,
-                        cached=False,
-                    )
-                raise AppException(
-                    code="INGEST_IN_PROGRESS",
-                    message="This video is currently being processed.",
-                    status_code=status.HTTP_409_CONFLICT,
-                    retryable=False,
-                    details={"existing_job_id": job.id},
-                )
-        except (json.JSONDecodeError, KeyError):
-            continue
-
-    # 4. Enqueue new background job
-    ensure_youtube_import_allowed(session)
-    client_request_id = req.client_request_id or str(uuid.uuid4())
-    payload = {
-        "url": req.url,
-        "youtube_id": youtube_id,
-        "force": req.force,
-        "force_gpu_whisper": req.force_gpu_whisper,
-    }
-    job, _ = job_runner.enqueue_job("ingest", client_request_id, payload)
-    response.status_code = status.HTTP_202_ACCEPTED
-    return IngestResponseDTO(
-        job_id=job.id,
-        video_id=None,
-        status=job.status,
-        cached=False,
-    )
 
 @router.get(
     "/videos",
@@ -135,8 +46,8 @@ def list_videos(
     items = [
         VideoSummaryDTO(
             id=video.id,
-            youtube_id=video.youtube_id,
-            source_type="local" if video.id in local_ids else "youtube",
+            source_key=video.source_key,
+            source_type="local" if video.id in local_ids else "unavailable",
             title=video.title,
             channel=video.channel,
             duration_seconds=video.duration_seconds,
@@ -213,8 +124,8 @@ def get_video_detail(
 
     return VideoDetailDTO(
         id=video.id,
-        youtube_id=video.youtube_id,
-        source_type="local" if session.get(LocalVideoMedia, video.id) else "youtube",
+        source_key=video.source_key,
+        source_type="local" if session.get(LocalVideoMedia, video.id) else "unavailable",
         title=video.title,
         channel=video.channel,
         duration_seconds=video.duration_seconds,
@@ -287,7 +198,7 @@ def delete_video(id: int, session: Session = Depends(get_session)) -> dict:
     active_jobs = session.exec(select(Job).where(Job.status.in_(["queued", "running"]))).all()
     for job in active_jobs:
         payload = json.loads(job.payload_json)
-        if payload.get("segment_id") in removed_segment_ids or payload.get("source_key") == video.youtube_id:
+        if payload.get("segment_id") in removed_segment_ids or payload.get("source_key") == video.source_key:
             raise AppException(code="VIDEO_BUSY", message="This video is still being processed. Wait for it to finish, then remove it.", status_code=409)
     media = session.get(LocalVideoMedia, id)
     local_paths = []

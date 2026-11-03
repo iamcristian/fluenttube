@@ -96,7 +96,7 @@ def shadowing_db():
 def seed_test_video_and_segments(engine):
     with Session(engine) as session:
         video = Video(
-            youtube_id="jNQXAC9IVRw",
+            source_key="jNQXAC9IVRw",
             title="Me at the zoo",
             channel="jawed",
             duration_seconds=19.0,

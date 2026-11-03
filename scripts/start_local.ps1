@@ -65,7 +65,7 @@ if (-not $NpmCmd) {
 $FfmpegCmd = Get-Command "ffmpeg" -ErrorAction SilentlyContinue
 if (-not $FfmpegCmd) {
     Write-Host "      [WARNING] FFmpeg was not found in PATH." -ForegroundColor DarkYellow
-    Write-Host "      Audio transcoding and YouTube downloads require FFmpeg." -ForegroundColor DarkYellow
+    Write-Host "      Audio transcoding and local video processing require FFmpeg." -ForegroundColor DarkYellow
     Write-Host "      Install FFmpeg or ensure ffmpeg.exe is in system PATH.`n" -ForegroundColor DarkYellow
 } else {
     Write-Host "      FFmpeg: Installed ($($FfmpegCmd.Source))" -ForegroundColor Green

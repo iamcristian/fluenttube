@@ -58,7 +58,7 @@ backend/.env
 backend/.env.*
 !backend/.env.example
 **/cookies.txt
-**/youtube-cookies*.txt
+**/*cookies*.txt
 **/*cookies*.json
 **/*.pem
 **/*.key

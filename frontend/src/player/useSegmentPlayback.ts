@@ -233,7 +233,7 @@ export function useSegmentPlayback({
     [stopTimer, checkPlaybackTick]
   );
 
-  // Auto-monitor whenever player enters PLAYING state (e.g. from YouTube iframe click or spacebar)
+  // Auto-monitor whenever player enters PLAYING state (e.g. from native player click or spacebar)
   useEffect(() => {
     if (!player) return;
 

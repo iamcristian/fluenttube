@@ -2,7 +2,7 @@
 
 Version: 2.0 · Date: October 23, 2026 · Document language: English.
 
-Base document: `master_implementation_plan_youtube_dictation_shadowing_clone_local_ai_portfolio_edition.md`.
+Current media workflow: upload a local MP4 or WebM, transcribe on-device, and play the stored file.
 
 Intended developer requested by user: Gemini Flash 3.8, High reasoning. Intended evaluator requested by user: GPT-6 Astra, High reasoning. These names describe the requested division of labor; they are not product dependencies and do not imply a model change in this conversation.
 
@@ -36,7 +36,7 @@ Do not simply hand over "implement this entire document." The file defines the f
 | Pronunciation | Treats ASR confidence as phonetic accuracy and letter distance as accent error. | Display word match and timing similarity as estimates. Do not diagnose phonemes or accent. |
 | CUDA | Uses `torch.cuda` to validate a CTranslate2 engine and leaves dependencies incomplete. | Verify the actual engine. PyTorch will not be a requirement solely to detect GPU. |
 | Model | Loads a large model right from startup. | Startup without loading a model; `small.en` as a conservative initial choice; `distil-large-v3` only after benchmarking. |
-| "100% Local" | Includes YouTube and cloud tutor. | Servers and ASR are local; YouTube requires internet; cloud tutor is optional and visible. |
+| "100% Local" | Includes optional cloud tutor features. | Servers, media playback and ASR are local; cloud tutor is optional and visible. |
 | "Zero Cost" | Assumes permanent free tiers from providers. | Core requires no paid APIs. Tutor disabled by default and subject to provider quotas/configuration. |
 | Ingestion | A single request can last minutes. | Queued background job, 202 response, polling status, and subsequent result retrieval. |
 | Persistence | `Attempt` appears in the file tree, but lacks schema and endpoint. | Define sessions, attempts, and persistent progress; server decides completion. |
@@ -45,7 +45,7 @@ Do not simply hand over "implement this entire document." The file defines the f
 | Tutor | Uses two incompatible JSON formats and an obsolete Gemini SDK. | Single canonical schema; single initial provider; verified current SDK. |
 | Re-ingestion | Replacing segments can destroy relationships with attempts and cards. | Immutable transcription in V1; `force` does not overwrite an existing video. |
 | Anki | Mixes basic and cloze cards, and lacks deduplication or download mechanism. | Basic listening card, stable GUID, asynchronous export, and controlled file path. |
-| Player Seconds | Confuses timer frequency with guaranteed precision. | 50 ms polling as a strategy, with measured tolerance and YouTube limitations. |
+| Player Seconds | Confuses timer frequency with guaranteed precision. | 50 ms polling as a strategy, with measured tolerance and native media limitations. |
 | Platform | "Any URL" and localhost are presented as guarantees against blocking. | Defined URL formats, recoverable errors, and no guarantee against external blocking. |
 
 Current documentation checks and official links appear in Section 19. Remaining decisions are rules of this product, not claims made by third-party providers.
@@ -54,7 +54,7 @@ Current documentation checks and official links appear in Section 19. Remaining 
 
 ### 2.1 Desired Outcome for Cristian
 
-A personal web application for practicing English with YouTube videos:
+A personal web application for practicing English with local video files:
 
 1. Paste a supported URL.
 2. Extract English time-stamped fragments, preferably from subtitles.
@@ -75,7 +75,7 @@ The visual goal is a polished study tool, not a marketing landing page. It must 
 | Single local user, no login | User accounts, billing, collaboration, and cloud sync |
 | English as target language | Automatic translation of videos in other languages |
 | Windows and desktop Chromium browser as primary environment | Guaranteed parity across all mobile and non-Chromium browsers |
-| `watch`, `youtu.be`, `shorts`, and `embed` URLs | Playlists, search feeds, active live streams, and bulk downloads |
+| Local MP4 and WebM uploads | Remote URL imports, playlists and bulk downloads |
 | Videos up to 30 minutes | Unlimited video duration processing |
 | SQLite and local files | Redis, Celery, Kubernetes, Postgres, or microservices |
 | Single backend process and single background job worker | Multi-GPU or multiple Uvicorn worker processes |
@@ -132,7 +132,7 @@ backend/app/models.py
 backend/app/schemas.py
 backend/app/errors.py
 backend/app/routers/{health,videos,jobs,dictation,shadowing,tutor,anki}.py
-backend/app/services/{jobs,youtube_service,segmenter,normalizer,alignment,dictation,whisper_engine,assessment,llm_tutor,anki_exporter}.py
+backend/app/services/{jobs,local_video,segmenter,normalizer,alignment,dictation,whisper_engine,assessment,llm_tutor,anki_exporter}.py
 backend/app/repositories/
 backend/tests/
 backend/requirements.in
@@ -143,7 +143,7 @@ backend/media_cache/{audio,recordings,exports,tmp}/
 frontend/src/api/{client,types,queries}.ts
 frontend/src/pages/{LibraryPage,StudyPage,SettingsPage}.tsx
 frontend/src/components/{Navbar,VideoLoaderModal,VideoPlayer,SegmentList,DictationBox,ShadowingStudio,GrammarTutorDrawer,AnkiExportModal}.tsx
-frontend/src/hooks/{useYouTubePlayer,useSegmentPlayback,useRecorder,useJob}.ts
+frontend/src/hooks/{useVideoPlayer,useSegmentPlayback,useRecorder,useJob}.ts
 frontend/src/store/useStudyStore.ts
 frontend/src/utils/{textNormalizer,alignment,shortcuts}.ts
 frontend/src/styles/tokens.css
@@ -168,14 +168,14 @@ Do not create empty files to pretend features are implemented. Create each modul
 - Text: Unicode; original text is preserved unnormalized for presentation.
 - Every SQLite connection activates foreign keys; configure WAL mode and `busy_timeout=5000`.
 - Create one DB session per request or worker task unit. Never share a Session across threads.
-- Do not keep a transaction open while awaiting YouTube, FFmpeg, ASR, or LLM responses.
+- Do not keep a transaction open while awaiting FFmpeg, ASR, or LLM responses.
 - `create_all` only creates newly declared tables; it is not a substitute for migrations. Before altering an existing DB, create a versioned migration and backup; do not drop the database to hide schema incompatibilities.
 
 ### 4.2 Minimum Entities
 
 | Entity | Fields and Constraints |
 | --- | --- |
-| Video | `id`, unique `youtube_id`, `title`, nullable `channel`, `duration_seconds > 0`, `transcription_source` = `captions_manual \| captions_auto \| local_asr`, `language='en'`, `created_at`, nullable `last_opened_at`, nullable FK `last_segment_id`, nullable internal `audio_relative_path`. |
+| Video | `id`, unique `source_key`, `title`, nullable `channel`, `duration_seconds > 0`, `transcription_source` = `captions_manual \| captions_auto \| local_asr`, `language='en'`, `created_at`, nullable `last_opened_at`, nullable FK `last_segment_id`, nullable internal `audio_relative_path`. |
 | Segment | `id`, FK `video_id`, `position >= 0`, `start_seconds >= 0`, `end_seconds > start_seconds`, non-empty `text`, `timing_quality` = `caption \| word \| coarse`, nullable positive `reference_speech_seconds`, nullable `completed_at`, nullable `revealed_at`. Unique constraint on `(video_id, position)`. |
 | PracticeSession | UUID `id`, unique `client_request_id`, `request_hash`, FK `segment_id`, `created_at`, `hinted_display_indices_json` (deduplicated list), `answer_revealed` bool, `last_input` text up to 2000 chars, nullable `last_result_json`. |
 | DictationAttempt | `id`, unique `client_request_id`, `request_hash`, FK `session_id`, FK `segment_id`, `input_text`, `normalized_target_json`, `normalized_input_json`, `distance`, `score`, `is_exact`, `assisted`, `rules_version`, `created_at`. Immutable. |
@@ -212,7 +212,7 @@ Expose `/api/health` without downloading models or running inference. All mutati
 Uniform error envelope, also applied to Pydantic validation failures:
 
 ```json
-{"error":{"code":"INVALID_YOUTUBE_URL","message":"Paste a supported YouTube video URL.","retryable":false,"details":{},"request_id":"uuid"}}
+{"error":{"code":"INVALID_INPUT","message":"Choose a supported video file.","retryable":false,"details":{},"request_id":"uuid"}}
 ```
 
 Do not leak stack traces, secret keys, absolute paths, or raw third-party provider payloads. Paginated lists: `{ "items": [], "total": 0 }`, with `limit` 1–100 and `offset >= 0`; defaults are 50 and 0. Deterministic sorting.
@@ -222,7 +222,7 @@ Do not leak stack traces, secret keys, absolute paths, or raw third-party provid
 ### 5.2 Core DTOs
 
 - `SegmentDTO`: `id`, `video_id`, `position`, `start_seconds`, `end_seconds`, `text`, `timing_quality`, `completed`, `revealed`, `shadowing_unlocked`, `best_word_match_score`, `best_overall_score`.
-- `VideoSummaryDTO`: `id`, `youtube_id`, `title`, `channel`, `duration_seconds`, `transcription_source`, `segment_count`, `completed_count`, `last_segment_id`, `created_at`.
+- `VideoSummaryDTO`: `id`, `source_key`, `title`, `channel`, `duration_seconds`, `transcription_source`, `segment_count`, `completed_count`, `last_segment_id`, `created_at`.
 - `VideoDetailDTO`: all summary fields + `segments: SegmentDTO[]`, ordered by `position`.
 - `JobDTO`: `id`, `kind`, `status`, `stage`, `progress`, `result`, `error`, `created_at`, `started_at`, `finished_at`.
 - `Job.result` is null until completion. `Job.error` is null unless failed. Never return internal `payload_json`.
@@ -233,7 +233,7 @@ Do not leak stack traces, secret keys, absolute paths, or raw third-party provid
 | Route | Request | Response & Side Effect |
 | --- | --- | --- |
 | GET `/health` | No body | 200 with `status`, `database`, `ffmpeg_available`, `speech`, `tutor`; 503 if DB unusable. |
-| POST `/videos/ingest` | `{url, force_gpu_whisper:false, client_request_id}` | 202 `{job_id,status:'queued'}`; video cached and force=false: 200 `{video_id,cached:true}`. |
+| POST `/api/videos/upload` | multipart `video_file` (MP4/WebM) | 202 `{job_id,status:"queued"}`; validates and stores a local video. |
 | GET `/jobs/{id}` | UUID | 200 `JobDTO`; 404 if not found. |
 | GET `/videos` | limit, offset | Summaries ordered by `last_opened_at` desc (nulls last); tie-break by id desc. |
 | GET `/videos/{id}` | Integer ID | Complete video details; 404 if not found. |
@@ -275,7 +275,7 @@ Completed Ingestion Job:
 
 ```json
 {
-  "id":"uuid", "kind":"ingest", "status":"succeeded", "stage":"done", "progress":1,
+  "id":"uuid", "kind":"local_ingest", "status":"succeeded", "stage":"done", "progress":1,
   "result":{"video_id":12}, "error":null,
   "created_at":"2026-10-23T12:00:00Z", "started_at":"2026-10-23T12:00:01Z", "finished_at":"2026-10-23T12:00:05Z"
 }
@@ -316,13 +316,13 @@ The `words` array must contain all original display words; this snippet illustra
 
 | Code | Initial HTTP when applicable | Visible User Action |
 | --- | --- | --- |
-| INVALID_YOUTUBE_URL / INVALID_INPUT | 422 | Correct the input URL. |
+| INVALID_INPUT | 422 | Correct the input file. |
 | VIDEO_TOO_LONG / LIVE_NOT_SUPPORTED | 422 | Choose another video. |
 | RESOURCE_NOT_FOUND | 404 | Return to library. |
 | VIDEO_ALREADY_EXISTS | 409 | Open existing video; existing progress is preserved. |
 | INGEST_IN_PROGRESS | 409 | Show `existing_job_id` and continue polling. |
 | QUEUE_FULL | 429 | Wait; display Retry-After header. |
-| YOUTUBE_BLOCKED / VIDEO_UNAVAILABLE | Error inside Job | Preserve library and allow manual retry. |
+| LOCAL_FILE_MISSING | Error inside Job | Preserve library and request a new file upload. |
 | CAPTIONS_UNAVAILABLE | Error inside Job if ASR also unavailable | Explain missing dependency and recovery path. |
 | AUDIO_DOWNLOAD_FAILED / FFMPEG_UNAVAILABLE | Error inside Job | Display diagnostics without leaking stack traces. |
 | GPU_UNAVAILABLE / GPU_OOM / MODEL_UNAVAILABLE | Error inside Job | Use permitted fallback or display configuration guide. |
@@ -341,7 +341,7 @@ The `words` array must contain all original display words; this snippet illustra
 
 Implement a `JobRunner` service started and stopped via FastAPI lifespan. Single Uvicorn process, single long-running background worker. It can be a thread backed by a bounded queue; do not add Redis or Celery.
 
-- `kind`: `ingest | shadowing | anki_export`.
+- `kind`: `local_ingest | shadowing`.
 - `status`: `queued -> running -> succeeded | failed`.
 - Maximum capacity: eight jobs waiting, in addition to the currently executing one.
 - All long-running operations are serialized in V1. Make it visible that an evaluation may wait behind an ingestion; do not promise concurrency.
@@ -359,38 +359,13 @@ Idempotency: The Job entity stores result and request hash. `PracticeSession` ad
 
 For exports, freeze the card fields into the internal job payload upon Job creation. That way, editing or deleting a card while the job is waiting in queue does not silently alter the requested deck. An exported file expires after 24 hours; the job record may be retained.
 
-### 6.2 URL Validation
+### 6.2 Local Upload Validation
 
-Pure function `parse_youtube_url(url) -> youtube_id`:
-
-1. Strip whitespace. Maximum length 2048 characters.
-2. Parse using a standard URL library; do not download the URL to discover what it is.
-3. Allow only http/https schemes, no user/password credentials, and no explicit ports other than 80/443.
-4. Exact allowed hostnames: `youtube.com`, `www.youtube.com`, `m.youtube.com`, `youtu.be`, `www.youtu.be`. Do not match hosts by substring or deceptive suffixes.
-5. Extract ID from `watch?v=ID`, `youtu.be/ID`, `/shorts/ID`, `/embed/ID`.
-6. Validate ID with regex `^[A-Za-z0-9_-]{11}$`. Reject conflicting multiple values for `v`.
-7. Ignore timestamp and playlist query parameters when a valid video exists; do not import the playlist. Reject standalone playlist URLs.
-8. Internally construct `https://www.youtube.com/watch?v=<id>`; only this sanitized URL is passed to the downloader.
-9. Do not pass arbitrary URLs or user-supplied paths to FFmpeg or the downloader.
-
-Mandatory tests: four valid formats, extra query params, leading/trailing whitespace, short ID, hostile host `youtube.com.evil.test`, credentials in URL, file scheme, standalone playlist, and contradictory `v` parameters.
+Accept a multipart `video_file` at `POST /api/videos/upload`. Validate MP4/WebM extension, size (250 MiB by default), actual container/audio streams with ffprobe, and duration (60 minutes by default). Copy the accepted file into app-owned media storage using a generated identifier. URL ingestion is not supported.
 
 ### 6.3 Ingestion Workflow
 
-1. Validate URL before enqueuing.
-2. If Video already exists and force=false: return cached video without network calls.
-3. If video exists and force=true: return 409 `VIDEO_ALREADY_EXISTS` with ID; V1 does not overwrite transcripts.
-4. If the same video is currently being processed: return 409 `INGEST_IN_PROGRESS` with `existing_job_id`. A retry with the same `client_request_id` retains the original job.
-5. Fetch metadata with a strict timeout. Reject active live streams, unavailable videos, unknown/non-positive duration, or duration exceeding 1800 s. Never fabricate duration to bypass limits.
-6. If force=false: look for manual English subtitles first; then automatic English subtitles. Support language variants like `en-*`. Do not translate another language and present the result as English audio.
-7. Clean subtitles and segment text. Lack of punctuation alone does not justify downloading audio and invoking ASR.
-8. If usable English text exists: persist with source `captions_manual` or `captions_auto`. If difficult overlaps occur, mark as `coarse` timing quality with a warning; never fake word-level precision.
-9. If no usable subtitles exist, or force=true on a new video: download audio and execute local ASR.
-10. If fetching subtitles fails due to rate-limiting/blocking, a single audio download fallback may be attempted; if that also fails, terminate with a meaningful error. No endless retry loops, paid proxies, or automatic browser cookie extraction.
-11. Validate all segments and commit them in a single database transaction.
-12. Mark Job as `succeeded` with `video_id`. The frontend fetches the details and navigates to the study view.
-
-Stages: `metadata`, `captions`, `downloading_audio`, `loading_model`, `transcribing`, `segmenting`, `saving`, `done`. Skip unused stages. During transcription, only report real progress if it can be derived from processed audio, without claiming remaining time is linear.
+Queue a `local_ingest` job with the stored file path, title, duration and source key. Load the local speech model, transcribe English speech with word timestamps, segment the transcript, then atomically save the Video, LocalVideoMedia and Segment rows. Save transcription checkpoints for long files. Recover saved local imports on startup or through `POST /api/jobs/{job_id}/resume`.
 
 ### 6.4 Deterministic Segmentation
 
@@ -429,20 +404,9 @@ Minimum fixture:
 }
 ```
 
-### 6.5 Download, Conversion, and Caching
+### 6.5 Conversion, Playback, and Caching
 
-- Name files using video/job UUIDs, never using third-party titles supplied by YouTube.
-- Store source audio under `media_cache/audio/<youtube_id>.<real-ext>`.
-- Prefer m4a if available; accept bestaudio from another container and preserve the genuine file extension. Do not rename WebM to M4A without transcoding.
-- Use the yt-dlp Python API or subprocess with separate argument lists and `shell=False`. Never concatenate unvetted user strings.
-- Configure network timeout, max retries = 1, and max source file limit = 250 MiB. Validate duration before download and after obtaining the file.
-- Verify genuine FFmpeg and ffprobe binaries, not just third-party Python packages with similar names.
-- The yt-dlp README documents additional requirements for YouTube; T00 must verify the JS runtime and EJS support for the pinned version, not merely assume pip alone suffices.
-- Always write to a temporary file path first and rename atomically on completion; a partial file is never valid cache.
-- Internal file paths must resolve strictly within `MEDIA_ROOT`. Never accept an absolute path from an incoming request.
-- User recordings are purged after evaluation or failure; only transcripts and scores persist. Clean up old orphaned temporary files on startup, without touching active files.
-- Video audio may remain cached for Anki exports; current cache footprint must be visible in Settings. Manual cache cleanup via documentation in V1; do not add automated library deletion.
-- Do not expose `media_cache` as a public static directory. Anki downloads are resolved via authorized job ID and job type.
+Store files under the configured local media root. Use FFmpeg/ffprobe with argument lists and `shell=False`. Preserve the app's original copy. Prepare a cached playback MP4 when needed without re-encoding. Serve owned media through `GET`/`HEAD /api/videos/{id}/media`, supporting byte ranges. Never derive filesystem paths directly from client input.
 
 ## 7. Dictation: Normalization, Alignment, Hints, and Progress
 
@@ -556,7 +520,7 @@ Use dark text over accent buttons if it yields superior contrast. Verify actual 
 **Library `/`**
 
 - Navbar: brand, Library, Settings, and backend connection status indicator.
-- Heading "Your listening practice", brief instructions, and an "Add YouTube video" button.
+- Heading "Your listening practice", brief instructions, and an "Import Video" button.
 - Empty state with URL input/CTA and a 3-step guide; do not show fake placeholder videos as real imports.
 - Video cards: title, channel, duration, transcription source badge, progress `x / y`, "Continue" button.
 - "Continue" navigates to the valid `last_segment_id`; if absent, the first incomplete segment; if all completed, the first segment.
@@ -564,7 +528,7 @@ Use dark text over accent buttons if it yields superior contrast. Verify actual 
 
 **Import Modal**
 
-- Label "YouTube URL", text input, helper text with accepted formats, and advanced checkbox "Use local transcription for this new video".
+- Label "Choose a video file", file picker, accepted formats and upload limits. All imports use local transcription.
 - Submitting state disables double-click, but allows closing the modal.
 - Active job view: stage label, indeterminate progress bar when null, and queued notice.
 - Error state presents concrete corrective actions; preserves URL for easy editing/retry.
@@ -614,7 +578,7 @@ Use dark text over accent buttons if it yields superior contrast. Verify actual 
 - Local user preferences: default playback speed, loop toggle, success sound effect, and tutor explanation language.
 - Display actual loaded model and hardware device; show "Not loaded" prior to the first inference.
 - Display clear instructions for configuring `.env`; do not build secret key input forms in the frontend or expose secret keys in responses.
-- Display notice that YouTube requires internet access even though backend server and ASR operate locally.
+- Explain that local media and speech recognition run on the computer; optional external features can require internet.
 
 ### 8.3 Required States per Component
 
@@ -643,28 +607,9 @@ In loading states, employ skeletons exclusively for unknown incoming layouts. In
 
 Prevent default browser actions only when the application actively handles the shortcut and the corresponding action is enabled. `Alt+Left/Right` must not trigger browser page history navigation while studying, but should not be intercepted outside the study workspace. Disable segment navigation shortcuts while recording. Never intercept ordinary typing characters within text inputs. Every shortcut must have a visual button equivalent and be documented in the help modal.
 
-## 9. YouTube Player and Temporal Control
+## 9. Local Player and Temporal Control
 
-Decouple API script loading (`useYouTubePlayer`) from segment loop logic (`useSegmentPlayback`). Define a `PlayerAdapter` interface providing `play`, `pause`, `seekTo`, `getCurrentTime`, `getState`, and `getAvailablePlaybackRates` to facilitate offline unit testing.
-
-1. Load the YouTube IFrame API script exactly once using a shared Promise; manage the global callback cleanly without overwriting other consumers.
-2. Instantiate and destroy the player instance cleanly on mount/unmount. Test under React StrictMode: ensure no duplicate player instances or leaked event listeners.
-3. Pass `origin=window.location.origin` and keep standard player accessibility controls intact. Do not conceal the video or overlay UI elements over YouTube branding.
-4. Never autoplay on initial page load. Playback requires explicit user interaction.
-5. `playSegment`: increment `generation_id`, cancel prior monitoring loops, set bounds, seek to start, and call play.
-6. While in `PLAYING` state, poll player position every 50 ms. Maintain strictly one timer per player.
-7. Base cutoff: `end + 0.12 s`. If the subsequent segment starts after the current end, clamp padding to that next start timestamp. If segments overlap, cut off strictly at the original end and display a coarse timing notice; never cut off before the original spoken content to fake alignment precision.
-8. Normal mode: upon reaching the cutoff timestamp, pause and hold the playhead there. The next "Replay" will seek back to start. Do not issue immediate pause+seek commands that induce player race conditions.
-9. Loop mode: seek back to segment start exactly once per cycle. Engage a `seeking` guard; do not issue repeated seek commands while the previous timestamp is still reported by the API. Disengage guard once the reported timestamp enters the segment interval before the cutoff. If the guard does not clear within 2 s, pause playback and present a "Replay" button, preventing runaway seek loops.
-10. Switching segments or videos invalidates active callbacks via `generation_id` and cancels timers.
-11. When not in `PLAYING` state, suspend the monitoring timer; in `BUFFERING` state, do not make cutoff decisions based on stale timestamps.
-12. When the browser tab is hidden, pause playback and cancel monitoring; upon returning, the user explicitly resumes. This avoids depending on background-throttled timers.
-13. Supported playback rates: 0.75 and 1.0, provided they are reported by `getAvailablePlaybackRates`. Listen for the actual rate-change event; do not display 0.75 if the player API rejected the change.
-14. If the user scrubs the native progress bar outside the segment bounds, disengage segment loop control and prompt "Replay sentence to return". Do not fight the user's manual scrubber.
-15. Handle video unavailable, embedding disabled, and client/referrer errors cleanly; display readable error codes along with a direct link to open the video on YouTube.
-16. Do not rely on `endSeconds` parameter as the sole guarantee when calling `seekTo`; YouTube documentation notes that this boundary is dropped after seeking.
-
-Acceptance criteria: The unit controller halts on the first tick >= cutoff. In a live browser, measure observed time deviation over 10 playback runs at normal and slow speeds, in foreground. UX target: p95 <= 300 ms under standard conditions; if not achieved, document findings and calibrate. Do not claim 50 ms precision merely because that polling frequency is used. Do not block the entire application on documented external iframe quirks.
+`useVideoPlayer` mounts a native HTML video element through `LocalVideoAdapter`. `useSegmentPlayback` owns sentence boundaries, looping, replay and seek guards. Do not autoplay on mount. Provide Play, Pause, Replay and speed controls. Release media and event listeners on unmount. Show a clear unavailable-media state for saved records without a local source.
 
 ## 10. Recording, Local ASR, and Practice Feedback
 
@@ -676,7 +621,7 @@ Acceptance criteria: The unit controller halts on the first tick >= cutoff. In a
 4. Collect audio chunks and await final `dataavailable` and `stop` events before constructing the Blob.
 5. Disallow clicking Evaluate while in `stopping` state. Prevent duplicate start/stop invocations and isolate events from older recordings using a `recording_id`.
 6. Automatically stop recording at 30 s and show that the limit was reached. Reject empty blobs before uploading.
-7. Pause the YouTube player during recording. V1 adopts a listen-then-repeat model; simultaneous recording over playing video audio is postponed to avoid ASR picking up the video speaker through loudspeakers.
+7. Pause the video player during recording. V1 adopts a listen-then-repeat model; simultaneous recording over playing video audio is postponed to avoid ASR picking up the video speaker through loudspeakers.
 8. Render the waveform of the completed recording using WaveSurfer; during capture, use a tested Record plugin or an active recording level indicator. Do not let live waveform rendering block the baseline delivery.
 9. Release audio tracks upon stop, error, or unmount; destroy WaveSurfer instances and revoke object URLs when replacing recordings or unmounting.
 10. Allow local playback of the Blob before submitting to Evaluate. Do not automatically upload upon stopping.
@@ -856,14 +801,14 @@ Repeated POST requests preserve the existing card and its existing notes. PATCH 
 
 Fixed Anki note fields: `Audio`, `Sentence`, `Notes`, `SourceURL`.
 
-- Front: audio + "Listen and recall the sentence" + YouTube link with timestamp. Do not reveal the full Sentence on the Front.
+- Front: audio + "Listen and recall the sentence" + local media reference with timestamp. Do not reveal the full Sentence on the Front.
 - Back: FrontSide + Sentence + Notes.
 - Escape HTML in Sentence and Notes; convert newlines to `<br>` after escaping.
-- Construct `SourceURL` from validated `youtube_id` and `start_seconds`; never embed arbitrary user-supplied URLs.
+- Reference the stored local media and segment start; never embed arbitrary user-supplied URLs.
 
 ### 12.2 Stable Identity
 
-Define constant integer `deck_id` and `model_id` in code, documented. Per-note GUID is generated using `genanki`'s deterministic GUID function over `youtube_id` + segment position + hash of text/timings. Do not rely on Python's randomized hash seed or auto-incrementing IDs from a different database.
+Define constant integer `deck_id` and `model_id` in code, documented. Per-note GUID is generated using `genanki`'s deterministic GUID function over `source_key` + segment position + hash of text/timings. Do not rely on Python's randomized hash seed or auto-incrementing IDs from a different database.
 
 Deck name: `FluentTube AI`. Re-exporting an identical card preserves its GUID to support in-place Anki updates, rather than duplicating notes on every export.
 
@@ -921,7 +866,7 @@ npm --prefix frontend run build
 
 The agent must verify presence of `py`, Python, Node, npm, FFmpeg, and CUDA runtime; if absent, provide specific instructions based on current official docs. Do not run global installers or modify system GPU drivers as side effects of `npm install` or launcher scripts.
 
-Core backend dependencies: fastapi, uvicorn, sqlmodel, pydantic-settings, python-multipart, and feature-specific libraries. Development: pytest and httpx. ASR: compatible faster-whisper/CTranslate2. YouTube: youtube-transcript-api, yt-dlp, and dependencies required by the pinned version. Anki: genanki. Tutor: google-genai, imported safely without requiring API keys at import time.
+Core backend dependencies: fastapi, uvicorn, sqlmodel, pydantic-settings, python-multipart, and feature-specific libraries. Development: pytest and httpx. ASR: compatible faster-whisper/CTranslate2. Anki: genanki. Tutor: google-genai, imported safely without requiring API keys at import time.
 
 Reproducibility: `requirements.in` declares direct dependencies; lockfile pins exact versions tested on Windows/Python 3.11. Frontend commits `package-lock.json`. Do not copy `pip freeze` from a bloated global environment.
 
@@ -1005,39 +950,19 @@ Referenced files represent primary targets, not an obligation to introduce empty
 
 **Tests:** Use controlled thread synchronization barriers/events rather than fragile long sleeps; full queue returns 429, same ID + same payload returns cached result, same ID + distinct payload returns conflict, job failure handling, and startup recovery.
 
-**Must not do:** Implement YouTube logic yet. Synthetic job handlers exist strictly in tests.
+**Must not do:** Implement media processing yet. Synthetic job handlers exist strictly in tests.
 
-### T05 — Pure URL Parser and Segmenter
+### T05 — Deterministic Segmenter
 
-**Depends on:** T03. **Files:** youtube_service.py (URL parser), segmenter.py, shared/fixtures/segmentation.json.
+Validate word timestamp segmentation, gaps, punctuation and sentence boundaries using the shared segmentation fixtures.
 
-**Steps:** Implement rules 6.2 and 6.4; preserve genuine timestamps; handle non-verbal noise filtering, punctuation breaks, time gaps, max thresholds, and coarse long segments.
+### T06 — Local File Ingestion
 
-**Acceptance criteria:** Fixture with three raw fragments produces exactly two segments; deceptive hostnames are rejected; identical phrases spoken at different timestamps are preserved.
-
-**Tests:** Terminal punctuation, abbreviations, boundary gap at 1.2 s vs. >1.2 s, 18 words / 10 s threshold, final buffer flush, text overlap deduplication, empty input, and non-finite timestamps.
-
-### T06 — Real Subtitle Ingestion and Caching
-
-**Depends on:** T02–T05. **Files:** YouTube service, videos router, job handlers.
-
-**Steps:** Fetch metadata, enforce video duration limits, select manual/auto English captions, segment text, persist in a single transaction, implement video list/detail/progress. Support caching, duplicate video rejection, and force flag handling. When captions are absent and ASR is not yet integrated, return an explicit pending-capability error; do not fake transcription.
-
-**Acceptance criteria:** Video with usable captions enqueues a Job and creates persistent library records; re-ingesting an existing video returns cached data without network calls; failure leaves no orphaned partial video records.
-
-**Tests:** Mocked external services for success, blocked, and non-English videos; one real documented smoke test against an accessible short video if internet is available. Do not tie test suites to permanent third-party public videos.
-
-**Gate G0:** Reviewable infrastructure and subtitle ingestion backend.
+Implement validated MP4/WebM uploads, bounded background jobs, checkpointed local ASR and atomic persistence. Cover invalid uploads, playback ranges, recovery and cleanup in isolated storage.
 
 ### T07 — Frontend Library and Import
 
-**Depends on:** T06. **Files:** client/types/queries, LibraryPage, VideoLoaderModal, useJob.
-
-**Steps:** Library route, real video list, empty state guide, import modal, polling loop and `job_id` state recovery; 200 cache hit vs. 202 background job handling; error states and idempotent retries.
-
-**Acceptance criteria:** Successful import navigates to the video study view; closing the modal does not abort the background job; double-click does not duplicate requests; library persists and reloads after browser refresh. No active mocks in production.
-
-**Tests:** UI unit tests with mocked HTTP responses for queued, running, succeeded, and failed states; verify polling halts on terminal status; verify no unwanted navigation if modal was closed.
+Provide a file picker, upload validation, progress polling, recoverable jobs, and navigation to the completed practice. The library supports search, progress filters and removal.
 
 ### T08 — Workspace and Segment Navigation
 
@@ -1049,15 +974,9 @@ Referenced files represent primary targets, not an obligation to introduce empty
 
 **Tests:** Navigating between non-consecutive segment IDs; reopening video detail confirms position; manual visual inspection across the three standard viewport widths.
 
-### T09 — Minimal YouTube Integration
+### T09 — Native Video Playback
 
-**Depends on:** T08. **Files:** useYouTubePlayer, VideoPlayer, PlayerAdapter.
-
-**Steps:** Singleton API Promise loader, iframe mount, origin security, ready/error/state handling and teardown; Play/Pause buttons; available playback rates query.
-
-**Acceptance criteria:** Exactly one player instance created under React StrictMode; meaningful error rendering; switching `videoId` swaps the video; no autoplay on mount; no unnecessary timers introduced.
-
-**Tests:** Fake adapter unit tests for mount/unmount; manual smoke check with a genuine embedded YouTube video.
+Mount local media with `useVideoPlayer` and `LocalVideoAdapter`. Verify controls, speed, sentence playback and media release on unmount.
 
 ### T10 — Segment Playback Control and Looping
 
@@ -1105,7 +1024,7 @@ Referenced files represent primary targets, not an obligation to introduce empty
 
 **Depends on:** T13. **Files:** useRecorder, ShadowingStudio.
 
-**Steps:** Microphone permission handling, MIME detection, recording state machine, final stop capture, 30 s limit, blob audio playback, and resource cleanup. Pause YouTube player before recording starts.
+**Steps:** Microphone permission handling, MIME detection, recording state machine, final stop capture, 30 s limit, blob audio playback, and resource cleanup. Pause the video player before recording starts.
 
 **Acceptance criteria:** User can record, playback, and re-record without an active ASR backend; microphone hardware is released immediately; navigation is guarded during capture; permission denials display clear instructions.
 
@@ -1141,15 +1060,9 @@ Referenced files represent primary targets, not an obligation to introduce empty
 
 **Tests:** Simulated CUDA/OOM failures; actual RTX benchmark if available. If host hardware or drivers are absent, mark hardware gate as blocked and continue independent tasks; do not fabricate G2 approval.
 
-### T18 — Ingestion ASR Fallback
+### T18 — Local Transcription
 
-**Depends on:** T06/T16, T17 for GPU verification. **Files:** youtube_service, whisper_engine, segmenter.
-
-**Steps:** Download audio, atomic cache write, handle missing captions, support `force` flag on new videos, segment using word timestamps, and record source as `local_asr`.
-
-**Acceptance criteria:** Download failure leaves no orphaned video records; Whisper generator fully consumed; unpunctuated captions do not force audio download; transcription source is indicated in UI.
-
-**Tests:** Service fixture for caption-less video, download failure, unavailable model, and force flag; one real walkthrough with suitable video if network is available.
+Use the configured local speech engine with word timestamps. Save completed transcription chunks and resume interrupted work without uploading the source again.
 
 ### T19 — Speech Feedback and Persistence
 
@@ -1213,7 +1126,7 @@ Referenced files represent primary targets, not an obligation to introduce empty
 
 **Depends on:** G1 and implemented features. **Files:** scripts, start_local.bat, README, env examples.
 
-**Steps:** Reproducible setup instructions, environment check script, launcher/stop scripts tracking self-launched PIDs, strict port binding, troubleshooting guide, and documented limits of ASR/tutor/YouTube.
+**Steps:** Reproducible setup instructions, environment check script, launcher/stop scripts tracking self-launched PIDs, strict port binding, troubleshooting guide, and documented limits of ASR/tutor/local media.
 
 **Acceptance criteria:** Starts from a clean terminal without hardcoded developer paths; port collision reports error and exits without killing other apps; stop script does not terminate unrelated Python/Node processes; private data ignored by Git.
 
@@ -1266,7 +1179,7 @@ Referenced files represent primary targets, not an obligation to introduce empty
 - Backend integration: temporary SQLite DB on disk, TestClient, injected mock network/ASR services, and controlled worker threads.
 - Components: Vitest + React Testing Library; observable user events and component states.
 - E2E: Playwright for deterministic user journeys with backend test fixtures and player test adapter; enable test mode explicitly, strictly prohibited in production builds.
-- Manual verification: genuine YouTube embed, microphone hardware, real GPU execution, live cloud LLM, and desktop Anki import when accessible.
+- Manual verification: native local video playback, microphone hardware, real GPU execution, live cloud LLM, and desktop Anki import when accessible.
 - Do not require active internet access or physical GPUs in baseline CI runs. Maintain `integration_external` and `gpu` markers for opt-in test suites.
 - Focus tests on meaningful operational risks, rather than tests that merely re-assert hardcoded implementation values.
 
@@ -1489,7 +1402,7 @@ Last Updated: [UTC]
 
 ## External Validations
 - RTX GPU: pending / observed with evidence.
-- YouTube Live: pending / observed.
+- Local media playback: pending / observed.
 - Live Tutor: disabled / pending / observed.
 - Real Anki: pending / observed.
 
@@ -1502,9 +1415,6 @@ Last Updated: [UTC]
 Consulted October 23, 2026. Verify again prior to installation/integration if package versions change. These sources support tool capabilities and constraints; they do not prove that this application has already been built or run.
 
 1. **faster-whisper, official project documentation**: [github.com/SYSTRAN/faster-whisper](https://github.com/SYSTRAN/faster-whisper). Reference for CTranslate2, CUDA/cuDNN dependencies, compute types, word timestamps, and generator consumption. The conservative model choice and queue in this specification are design decisions, not guaranteed RTX 3050 benchmarks.
-2. **YouTube IFrame Player API**: [developers.google.com/youtube/iframe_api_reference](https://developers.google.com/youtube/iframe_api_reference). Reference for seekTo, endSeconds, player states, supported speeds, and player sizing. The 50 ms rate is a proposed sampling frequency, not a guaranteed platform precision.
-3. **youtube-transcript-api, maintainer documentation**: [github.com/jdepoix/youtube-transcript-api](https://github.com/jdepoix/youtube-transcript-api). Retrieval of manual and automatic captions, along with IP rate-limiting that can also impact self-hosted instances.
-4. **yt-dlp, official project documentation**: [github.com/yt-dlp/yt-dlp](https://github.com/yt-dlp/yt-dlp). Requirements for FFmpeg/ffprobe and YouTube JS/EJS runtime support in current releases. Do not assume an M4A audio stream is always available.
 5. **Google, Gemini SDK**: [ai.google.dev/gemini-api/docs/libraries](https://ai.google.dev/gemini-api/docs/libraries). Current Python SDK `google-genai`; legacy libraries require migration. Neither a specific commercial model nor permanent free quota is assumed here.
 6. **MDN, MediaRecorder.isTypeSupported**: [developer.mozilla.org/en-US/docs/Web/API/MediaRecorder/isTypeSupported_static](https://developer.mozilla.org/en-US/docs/Web/API/MediaRecorder/isTypeSupported_static). Audio container format detection and potential subsequent hardware resource errors.
 7. **MDN, getUserMedia**: [developer.mozilla.org/en-US/docs/Web/API/MediaDevices/getUserMedia](https://developer.mozilla.org/en-US/docs/Web/API/MediaDevices/getUserMedia). Permissions, error handling, and secure context requirements, including localhost.

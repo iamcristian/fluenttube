@@ -8,12 +8,10 @@ import {
   AlertCircle,
   Settings as SettingsIcon,
   Zap,
-  ShieldCheck,
   RefreshCw,
 } from 'lucide-react';
 import { apiClient, ApiError } from '../api/client';
 import { SegmentDTO, TutorExplanationDTO, TutorKeyVocabularyType } from '../api/types';
-import { useSettingsStore } from '../stores/useSettingsStore';
 import { useStudyStore } from '../stores/useStudyStore';
 
 export interface GrammarTutorDrawerProps {
@@ -23,16 +21,20 @@ export interface GrammarTutorDrawerProps {
   triggerRef?: React.RefObject<HTMLElement | null>;
 }
 
-type DrawerState = 'checking' | 'disabled' | 'idle' | 'loading' | 'ready' | 'error';
+type DrawerState = 'disabled' | 'loading' | 'ready' | 'error';
 
-const LANGUAGE_OPTIONS = [
-  { code: 'es', label: 'Spanish (Español)' },
-  { code: 'en', label: 'English' },
-  { code: 'fr', label: 'French (Français)' },
-  { code: 'de', label: 'German (Deutsch)' },
-  { code: 'ja', label: 'Japanese (日本語)' },
-  { code: 'pt', label: 'Portuguese (Português)' },
-];
+const pendingExplanations = new Map<number, Promise<TutorExplanationDTO>>();
+const PROFILE = 'sentence-british-v2';
+function requestExplanation(id: number) {
+  let pending = pendingExplanations.get(id);
+  if (!pending) {
+    pending = apiClient.explainSegment(id, 'en');
+    pendingExplanations.set(id, pending);
+    const clear = () => { if (pendingExplanations.get(id) === pending) pendingExplanations.delete(id); };
+    pending.then(clear, clear);
+  }
+  return pending;
+}
 
 function getVocabularyBadgeStyle(type: TutorKeyVocabularyType): string {
   switch (type) {
@@ -56,67 +58,41 @@ export const GrammarTutorDrawer: React.FC<GrammarTutorDrawerProps> = ({
   segment,
   triggerRef,
 }) => {
-  const { explanationLanguage, setExplanationLanguage } = useSettingsStore();
-  const { tutorExplanations, setTutorExplanation } = useStudyStore();
+  const { setTutorExplanation } = useStudyStore();
 
-  const [selectedLang, setSelectedLang] = useState(explanationLanguage);
-  const [drawerState, setDrawerState] = useState<DrawerState>('checking');
+  const [retry, setRetry] = useState(0);
+  const [drawerState, setDrawerState] = useState<DrawerState>('loading');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [currentExplanation, setCurrentExplanation] = useState<TutorExplanationDTO | null>(null);
 
   const drawerRef = useRef<HTMLDivElement>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
 
-  // Sync selected language with settings store
+  const segmentId = segment?.id;
   useEffect(() => {
-    setSelectedLang(explanationLanguage);
-  }, [explanationLanguage]);
-
-  const activeRequestIdRef = useRef<string>('');
-
-  // Check tutor availability & cached state on drawer open
-  useEffect(() => {
-    if (!isOpen || !segment) {
-      setCurrentExplanation(null);
-      return;
-    }
-
-    let isMounted = true;
-    const cacheKey = `${segment.id}_${selectedLang}`;
-    activeRequestIdRef.current = cacheKey;
-
-    const cached = tutorExplanations[cacheKey];
+    if (!isOpen || segmentId == null) return;
+    let active = true;
+    setErrorMessage(null);
+    setCurrentExplanation(null);
+    const cached = useStudyStore.getState().tutorExplanations[`${segmentId}_${PROFILE}`];
     if (cached) {
       setCurrentExplanation(cached);
       setDrawerState('ready');
       return;
     }
-
-    // Immediately clear stale explanation from a previous sentence (F-12)
-    setCurrentExplanation(null);
-
-    // Check health to see if tutor is enabled
-    apiClient
-      .getHealth()
-      .then((health) => {
-        if (!isMounted || activeRequestIdRef.current !== cacheKey) return;
-        if (!health.tutor.enabled) {
-          setDrawerState('disabled');
-        } else {
-          setDrawerState('idle');
-          setCurrentExplanation(null);
-        }
-      })
-      .catch((err) => {
-        if (!isMounted || activeRequestIdRef.current !== cacheKey) return;
-        console.warn('Failed to query health for tutor check:', err);
-        setDrawerState('idle');
-      });
-
-    return () => {
-      isMounted = false;
-    };
-  }, [isOpen, segment, selectedLang, tutorExplanations]);
+    setDrawerState('loading');
+    requestExplanation(segmentId).then(result => {
+      setTutorExplanation(segmentId, PROFILE, result);
+      if (!active) return;
+      setCurrentExplanation(result);
+      setDrawerState('ready');
+    }).catch(error => {
+      if (!active) return;
+      setDrawerState(error instanceof ApiError && error.code === 'TUTOR_DISABLED' ? 'disabled' : 'error');
+      setErrorMessage(error instanceof Error ? error.message : 'Unable to connect to the tutor. Please try again.');
+    });
+    return () => { active = false; };
+  }, [isOpen, segmentId, retry, setTutorExplanation]);
 
   // Keyboard shortcut: Escape closes drawer (Section 8.4)
   useEffect(() => {
@@ -142,60 +118,7 @@ export const GrammarTutorDrawer: React.FC<GrammarTutorDrawerProps> = ({
     }
   }, [isOpen, triggerRef]);
 
-  // Request explanation from API with request identity guard (F-12)
-  const handleFetchExplanation = async () => {
-    if (!segment) return;
-    const reqKey = `${segment.id}_${selectedLang}`;
-    activeRequestIdRef.current = reqKey;
-
-    setDrawerState('loading');
-    setErrorMessage(null);
-
-    try {
-      const result = await apiClient.explainSegment(segment.id, selectedLang);
-      if (activeRequestIdRef.current === reqKey) {
-        setCurrentExplanation(result);
-        setTutorExplanation(segment.id, selectedLang, result);
-        setDrawerState('ready');
-      }
-    } catch (err: unknown) {
-      if (activeRequestIdRef.current !== reqKey) return;
-      setDrawerState('error');
-      if (err instanceof ApiError) {
-        if (err.code === 'TUTOR_DISABLED') {
-          setDrawerState('disabled');
-          return;
-        }
-        if (err.code === 'TUTOR_QUOTA_EXCEEDED') {
-          setErrorMessage('Tutor rate limit or quota exceeded. Please try again in a few moments.');
-          return;
-        }
-        if (err.code === 'SEGMENT_LOCKED') {
-          setErrorMessage('Sentence must be completed or revealed before requesting tutor analysis.');
-          return;
-        }
-        setErrorMessage(err.message || 'Failed to generate tutor explanation.');
-      } else {
-        setErrorMessage('Unable to connect to tutor service. Check network or local backend.');
-      }
-    }
-  };
-
-  const handleLanguageChange = (lang: string) => {
-    setSelectedLang(lang);
-    setExplanationLanguage(lang);
-    if (segment) {
-      const cacheKey = `${segment.id}_${lang}`;
-      const cached = tutorExplanations[cacheKey];
-      if (cached) {
-        setCurrentExplanation(cached);
-        setDrawerState('ready');
-      } else {
-        setCurrentExplanation(null);
-        setDrawerState('idle');
-      }
-    }
-  };
+  const handleFetchExplanation = () => setRetry(value => value + 1);
 
   if (!isOpen) return null;
 
@@ -227,7 +150,7 @@ export const GrammarTutorDrawer: React.FC<GrammarTutorDrawerProps> = ({
                 Contextual Grammar Tutor
               </h2>
               <p className="text-[11px] text-text-secondary">
-                Pedagogical B2 explanation of target sentence
+                Spanish translation · English notes · British pronunciation
               </p>
             </div>
           </div>
@@ -255,26 +178,6 @@ export const GrammarTutorDrawer: React.FC<GrammarTutorDrawerProps> = ({
             </p>
           </div>
 
-          {/* Language Selector */}
-          <div className="flex items-center justify-between text-xs pt-1">
-            <label htmlFor="tutor-lang-select" className="text-text-secondary font-medium">
-              Explanation language:
-            </label>
-            <select
-              id="tutor-lang-select"
-              value={selectedLang}
-              onChange={(e) => handleLanguageChange(e.target.value)}
-              disabled={drawerState === 'loading'}
-              className="px-2.5 py-1 rounded-control bg-surface-raised border border-border text-xs text-white focus:outline-none focus:ring-1 focus:ring-accent"
-            >
-              {LANGUAGE_OPTIONS.map((opt) => (
-                <option key={opt.code} value={opt.code}>
-                  {opt.label}
-                </option>
-              ))}
-            </select>
-          </div>
-
           {/* STATE: Disabled */}
           {drawerState === 'disabled' && (
             <div className="p-5 rounded-panel bg-amber-950/20 border border-amber-800/40 text-center space-y-3 my-4">
@@ -294,28 +197,6 @@ export const GrammarTutorDrawer: React.FC<GrammarTutorDrawerProps> = ({
                   <span>View Settings & Setup Guide</span>
                 </a>
               </div>
-            </div>
-          )}
-
-          {/* STATE: Idle */}
-          {drawerState === 'idle' && (
-            <div className="space-y-4 pt-2">
-              <div className="p-3.5 rounded-panel bg-surface-raised/50 border border-border/60 flex items-start space-x-2.5">
-                <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
-                <p className="text-[11px] text-text-secondary leading-relaxed">
-                  Only this sentence and its immediate neighbors are sent to the AI provider.
-                  Full video transcripts, audio files, and practice records are never transmitted.
-                </p>
-              </div>
-
-              <button
-                type="button"
-                onClick={handleFetchExplanation}
-                className="w-full py-2.5 px-4 rounded-control bg-accent hover:bg-accent/90 text-background font-bold text-xs uppercase tracking-wider flex items-center justify-center space-x-2 shadow-lg shadow-accent/20 transition active:scale-98"
-              >
-                <Sparkles className="w-4 h-4" />
-                <span>Explain this sentence</span>
-              </button>
             </div>
           )}
 
@@ -356,6 +237,10 @@ export const GrammarTutorDrawer: React.FC<GrammarTutorDrawerProps> = ({
           {/* STATE: Ready / Structured Explanation */}
           {drawerState === 'ready' && currentExplanation && (
             <div className="space-y-4 animate-fadeIn">
+              <section className="p-4 rounded-panel bg-surface-raised border border-border space-y-2">
+                <h3 className="text-xs font-bold uppercase tracking-wider text-accent">Spanish translation</h3>
+                <p lang="es" className="text-sm text-slate-200 leading-relaxed">{currentExplanation.spanish_translation}</p>
+              </section>
               {/* Contextual Meaning */}
               <section className="p-4 rounded-panel bg-surface-raised border border-border space-y-2">
                 <div className="flex items-center space-x-2 text-accent">
@@ -396,6 +281,7 @@ export const GrammarTutorDrawer: React.FC<GrammarTutorDrawerProps> = ({
                         <p className="text-xs text-slate-300 leading-relaxed">
                           {item.explanation}
                         </p>
+                        <p className="text-xs text-slate-300 leading-relaxed"><strong>Example:</strong> {item.example}</p>
                       </div>
                     ))}
                   </div>
@@ -406,7 +292,7 @@ export const GrammarTutorDrawer: React.FC<GrammarTutorDrawerProps> = ({
               {currentExplanation.connected_speech.length > 0 && (
                 <section className="space-y-2">
                   <h3 className="text-xs font-bold uppercase tracking-wider text-text-secondary px-1">
-                    Connected Speech Tips ({currentExplanation.connected_speech.length})
+                    British Connected Speech Tips ({currentExplanation.connected_speech.length})
                   </h3>
                   <div className="space-y-2">
                     {currentExplanation.connected_speech.map((item, idx) => (

@@ -38,7 +38,7 @@ def test_video_and_segments_save_and_read(temp_db):
     """Verify video and ordered segments persist with 0-based positions."""
     with Session(temp_db) as session:
         video = Video(
-            youtube_id="dQw4w9WgXcQ",
+            source_key="dQw4w9WgXcQ",
             title="Never Gonna Give You Up",
             channel="Rick Astley",
             duration_seconds=212.0,
@@ -76,7 +76,7 @@ def test_video_and_segments_save_and_read(temp_db):
     # Reopen fresh session
     with Session(temp_db) as session:
         loaded_video = session.exec(
-            select(Video).where(Video.youtube_id == "dQw4w9WgXcQ")
+            select(Video).where(Video.source_key == "dQw4w9WgXcQ")
         ).one()
         assert loaded_video.title == "Never Gonna Give You Up"
         assert len(loaded_video.segments) == 2
@@ -84,11 +84,11 @@ def test_video_and_segments_save_and_read(temp_db):
         assert loaded_video.segments[1].position == 1
         assert loaded_video.last_segment_id == loaded_video.segments[0].id
 
-def test_unique_youtube_id_constraint(temp_db):
-    """Verify unique constraint on Video.youtube_id."""
+def test_unique_source_key_constraint(temp_db):
+    """Verify unique constraint on Video.source_key."""
     with Session(temp_db) as session:
         v1 = Video(
-            youtube_id="unique_id_123",
+            source_key="unique_id_123",
             title="Video 1",
             duration_seconds=60.0,
             transcription_source="captions_manual",
@@ -97,7 +97,7 @@ def test_unique_youtube_id_constraint(temp_db):
         session.commit()
 
         v2 = Video(
-            youtube_id="unique_id_123",
+            source_key="unique_id_123",
             title="Video 2 (Duplicate)",
             duration_seconds=120.0,
             transcription_source="captions_auto",
@@ -110,7 +110,7 @@ def test_unique_video_position_constraint(temp_db):
     """Verify unique constraint on (video_id, position)."""
     with Session(temp_db) as session:
         video = Video(
-            youtube_id="vid_pos_test",
+            source_key="vid_pos_test",
             title="Position Test",
             duration_seconds=30.0,
             transcription_source="captions_manual",
@@ -162,7 +162,7 @@ def test_cascade_delete_video(temp_db):
     """Verify deleting a video cascades and removes all segments."""
     with Session(temp_db) as session:
         video = Video(
-            youtube_id="cascade_test",
+            source_key="cascade_test",
             title="Cascade Test",
             duration_seconds=10.0,
             transcription_source="captions_manual",
@@ -194,7 +194,7 @@ def test_idempotency_key_enforcement(temp_db):
     """Verify client_request_id unique constraint on PracticeSession and Job."""
     with Session(temp_db) as session:
         video = Video(
-            youtube_id="idemp_vid",
+            source_key="idemp_vid",
             title="Idempotency Test",
             duration_seconds=10.0,
             transcription_source="captions_manual",
@@ -257,7 +257,7 @@ def test_rollback_of_partial_insertion(temp_db):
     with Session(temp_db) as session:
         try:
             video = Video(
-                youtube_id="rollback_vid",
+                source_key="rollback_vid",
                 title="Rollback Test",
                 duration_seconds=60.0,
                 transcription_source="captions_manual",
@@ -293,7 +293,7 @@ def test_rollback_of_partial_insertion(temp_db):
 
     # Verify neither video nor segment was persisted
     with Session(temp_db) as session:
-        videos = session.exec(select(Video).where(Video.youtube_id == "rollback_vid")).all()
+        videos = session.exec(select(Video).where(Video.source_key == "rollback_vid")).all()
         assert len(videos) == 0
         segments = session.exec(select(Segment).where(Segment.text == "Valid segment")).all()
         assert len(segments) == 0

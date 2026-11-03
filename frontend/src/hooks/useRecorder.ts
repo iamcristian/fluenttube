@@ -197,7 +197,7 @@ export function useRecorder(options: UseRecorderOptions = {}): UseRecorderReturn
     setErrorMessage(null);
     isCancelledRef.current = false;
 
-    // Pause YouTube playback before recording begins per Section 14.15
+    // Pause video playback before recording begins per Section 14.15
     if (onBeforeStart) {
       try {
         onBeforeStart();

@@ -10,17 +10,25 @@ describe('Local video playback', () => {
   });
   afterEach(() => { cleanup(); vi.restoreAllMocks(); });
 
-  it('uses the local media endpoint without injecting a YouTube script or iframe', () => {
-    const before = document.querySelectorAll('script[src*="youtube"]').length;
+  it('uses the local media endpoint without injecting a remote script or iframe', () => {
+    const before = document.querySelectorAll('script[src^="http"]').length;
     const { container } = render(<VideoPlayer videoId="local:test" mediaUrl="/api/videos/12/media" startSeconds={1} endSeconds={3} />);
     const video = container.querySelector('video')!;
     expect(video).toHaveAttribute('src', '/api/videos/12/media');
     expect(container.querySelector('iframe')).toBeNull();
-    expect(document.querySelectorAll('script[src*="youtube"]')).toHaveLength(before);
+    expect(document.querySelectorAll('script[src^="http"]')).toHaveLength(before);
     act(() => fireEvent.loadedMetadata(video));
     expect(screen.getByRole('button', { name: 'Play video' })).toBeEnabled();
     fireEvent.click(screen.getByRole('button', { name: 'Play video' }));
     expect(video.play).toHaveBeenCalled();
+  });
+
+  it('shows a clear notice when a saved video has no local media', () => {
+    const { container } = render(<VideoPlayer videoId="saved-record" />);
+    expect(screen.getByRole('alert')).toHaveTextContent('The original media is unavailable');
+    expect(screen.getByRole('button', { name: 'Play video' })).toBeDisabled();
+    expect(container.querySelector('video, iframe')).toBeNull();
+    expect(screen.queryByRole('link')).toBeNull();
   });
 
   it('changes playback speed and releases the local player on unmount', () => {

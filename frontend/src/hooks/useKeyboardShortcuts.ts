@@ -17,7 +17,7 @@ export interface ShortcutHandlers {
  * - Previous / next sentence: Alt+Left / Alt+Right (prevent default page history)
  * - Close modal/drawer: Escape
  * - Segment navigation disabled while recording
- * - Tab / Shift+Tab standard behavior (never intercepted)
+ * - Tab / Shift+Tab standard navigation; DictationBox handles a rapid double Tab hint
  */
 export function useKeyboardShortcuts({
   onReplay,

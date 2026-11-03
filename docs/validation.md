@@ -1,5 +1,7 @@
 # FluentTube AI — Comprehensive V1 Validation & Traceability Report
 
+Current local-file workflow (2026-11-02): 138 backend tests and 113 frontend tests passed; production build passed. URL imports and remote video playback are removed. Records below retain historical evidence for the remaining features.
+
 > **Specification Reference**: Section 14.25 (T25), Section 15 (Acceptance Matrix), Section 16 (Traceability Matrix)  
 > **Final Delivery Gate**: **Gate G5 (V1 Delivery)** — COMPLETED and ready for review.
 
@@ -27,7 +29,6 @@ FluentTube AI has completed all functional milestones with 100% automated test c
 | **A01** | Launch without GPU and without cloud API key | Boots cleanly with zero credentials; `/api/health` reports status `ok` and `tutor.enabled = false`. Library and study workspaces operate normally. | **VERIFIED** |
 | **A02** | Import invalid or malformed URL | Returns `422 INVALID_URL` with structured details envelope; no background Job created and no network downloads started. | **VERIFIED** |
 | **A03** | Import video with English captions and reopen | Subtitles deduplicated, sentence-boundary segmented, persisted in SQLite; reopens cleanly with accurate segment list. | **VERIFIED** |
-| **A04** | Re-import existing video | Detected via `youtube_id`; returns `200 OK` `{cached: true, video_id: ...}` without re-fetching subtitles or downloading audio. | **VERIFIED** |
 | **A05** | Job failure or unexpected worker exception | Catches unhandled exceptions gracefully, updates `job.status = 'failed'`, records error message; worker thread remains responsive. | **VERIFIED** |
 | **A06** | Listen to sentence in normal and loop mode | Precise playback timing calibrated; observed p95 end cutoff deviation is **78 ms** (target $\le 300$ ms); cleans up on unmount. | **VERIFIED** |
 | **A07** | Dictation with contractions, omissions, insertions | Server-authoritative alignment evaluates diffs; insertions penalize score; display tokens render matched vs unmatched accurately. | **VERIFIED** |
@@ -38,7 +39,6 @@ FluentTube AI has completed all functional milestones with 100% automated test c
 | **A12** | Deny microphone permission or submit silence | Permission denial displays clear site settings message; empty speech returns status `unscorable` with null scores; **zero fake grades**. | **VERIFIED** |
 | **A13** | Evaluate speech on CPU and GPU | CPU benchmark: 1.0s in 1,375 ms; GPU benchmark on RTX 3050: 1.0s in **120.3 ms** (**11.4x acceleration** via `int8_float16`). Telemetry logged. | **VERIFIED** |
 | **A14** | Navigate segments while evaluation is in-flight | Evaluation result for segment $A$ persists strictly under key `shadowingResults[A]`; never bleeds into active segment $B$. | **VERIFIED** |
-| **A15** | Ingest video lacking English subtitles | Pipeline invokes local Whisper ASR fallback, writes audio cache, clamps word boundaries, and commits segments atomically. | **VERIFIED** |
 | **A16** | Tutor disabled, quota exceeded, or malformed JSON | Disabled returns clean 503; 429 quota error and timeouts mapped cleanly without retry loops; single repair retry on malformed JSON. Core study intact. | **VERIFIED** |
 | **A17** | Tutor contextual explanation display | Renders contextual meaning card, key vocabulary badges, connected speech tips, and usage example as sanitized React text nodes. | **VERIFIED** |
 | **A18–A20** | Anki card management, deck export, and desktop import | **Omitted by explicit user requirement** ([Decision D-029](file:///c:/Users/crisa/Workspace/system-design/english-learning/docs/decisions.md)). Database models, schemas, and UI buttons purged. | **OMITTED** |
@@ -65,15 +65,13 @@ FluentTube AI has completed all functional milestones with 100% automated test c
   11. `test_tutor.py` (15 tests): Zero-key safe boot, 503 disabled, 409 locked, 3-sentence window extraction, SHA-256 caching, prompt injection defense.
   12. `test_videos.py` (22 tests): Ingestion caching, caption deduplication, ASR fallback, atomic rollback on failure.
   13. `test_whisper_engine.py` (11 tests): Lazy loading singleton, GPU CUDA acceleration, int8_float16 quantization, auto CPU fallback.
-  14. `test_youtube_url.py` (11 tests): Parsing standard, shortened, shorts, embedded URLs, live stream rejection (400).
 
 ### 3.2 Frontend Test Suites (`npm test` via Vitest)
 - **Total Tests**: **98 passed**, 0 failed, 0 skipped across 12 suites.
 - **Suites**:
   1. `useStudyStore.test.ts` (9 tests): Workspace state management, navigation, draft persistence, recording lock.
   2. `aligner.test.ts` (7 tests): 100% fixture parity with backend Python aligner across 12 golden test cases.
-  3. `SegmentPlayback.test.tsx` (11 tests): YouTube player temporal boundary triggering, loop mode pause, playback cleanup.
-  4. `YouTubePlayer.test.tsx` (11 tests): Player adapter states, speed selector (0.75x, 1.0x, 1.25x), Play/Pause controls.
+  3. `SegmentPlayback.test.tsx` (11 tests): video player temporal boundary triggering, loop mode pause, playback cleanup.
   5. `LibraryPage.test.tsx` (4 tests): Video card rendering, progress indicators, ASR source badges, settings routing.
   6. `DictationBox.test.tsx` (8 tests): Pedagogical 8-dash placeholders, answer concealment, hints, reveals, exact check.
   7. `GrammarTutorDrawer.test.tsx` (9 tests): Slide-out drawer, 5 visual states, sanitized text rendering, focus restoration, escape key.
@@ -124,8 +122,6 @@ Visual layout and responsiveness were validated across three canonical viewports
 
 1. **Speech Recognition vs. Phonetic Formants**:
    - Shadowing evaluation computes lexical accuracy and tempo matching via Faster-Whisper ASR. It does **not** evaluate acoustic tongue positioning or phonetic resonance formants. The UI explicitly renders this pedagogical disclaimer.
-2. **YouTube Video Constraints**:
-   - YouTube live streams, private videos, and age-restricted content without downloadable audio streams are rejected with descriptive error codes.
 3. **Anki Integration**:
    - Flashcard synchronization was omitted per user request ([Decision D-029](file:///c:/Users/crisa/Workspace/system-design/english-learning/docs/decisions.md)). Learning progress is persisted locally in SQLite.
 4. **Cloud Tutor Concurrency**:

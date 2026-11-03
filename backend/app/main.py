@@ -24,7 +24,6 @@ from backend.app.routers.tutor import router as tutor_router
 from backend.app.routers.british import router as british_router
 from backend.app.routers.vocabulary import router as vocabulary_router
 from backend.app.services.jobs import job_runner
-from backend.app.services.youtube_service import handle_ingest_job
 from backend.app.services.local_video import handle_local_ingest_job
 from backend.app.services.shadowing_service import handle_shadowing_job
 
@@ -34,7 +33,6 @@ ALLOWED_HOSTS = {"localhost", "127.0.0.1", "testserver"}
 async def lifespan(app: FastAPI):
     # Initialize DB tables & register job handlers & recover interrupted jobs & start worker thread
     init_db()
-    job_runner.register_handler("ingest", handle_ingest_job)
     job_runner.register_handler("local_ingest", handle_local_ingest_job)
     job_runner.register_handler("shadowing", handle_shadowing_job)
     job_runner.start()

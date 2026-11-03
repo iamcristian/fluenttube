@@ -44,7 +44,7 @@ describe('useStudyStore and resolveInitialSegment', () => {
 
   const mockVideo: VideoDetailDTO = {
     id: 1,
-    youtube_id: 'dQw4w9WgXcQ',
+    source_key: 'dQw4w9WgXcQ',
     title: 'Test Video Navigation',
     channel: 'Test Channel',
     duration_seconds: 120.0,

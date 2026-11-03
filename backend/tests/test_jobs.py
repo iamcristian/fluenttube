@@ -226,7 +226,7 @@ def test_start_does_not_interrupt_an_already_running_worker(test_runner):
         release.set()
 
 
-def test_startup_requeues_local_files_without_retrying_youtube(tmp_path, monkeypatch):
+def test_startup_requeues_local_files_without_retrying_retired_imports(tmp_path, monkeypatch):
     from backend.app.config import settings
     root = tmp_path / "media"
     (root / "local").mkdir(parents=True)
@@ -236,12 +236,12 @@ def test_startup_requeues_local_files_without_retrying_youtube(tmp_path, monkeyp
     init_db(engine)
     with Session(engine) as session:
         local = Job(client_request_id="local", request_hash="test", kind="local_ingest", status="running", payload_json=json.dumps({"file_relative_path": "local/saved.mp4"}))
-        youtube = Job(client_request_id="youtube", request_hash="test", kind="ingest", status="running")
-        session.add_all([local, youtube])
+        retired = Job(client_request_id="retired", request_hash="test", kind="ingest", status="running")
+        session.add_all([local, retired])
         session.commit()
         session.refresh(local)
-        session.refresh(youtube)
-        local_id, youtube_id = local.id, youtube.id
+        session.refresh(retired)
+        local_id, source_key = local.id, retired.id
     called = threading.Event()
     runner = JobRunner(engine_override=engine)
     def recover(job_id, payload, update_progress):
@@ -251,7 +251,7 @@ def test_startup_requeues_local_files_without_retrying_youtube(tmp_path, monkeyp
     runner.start()
     try:
         assert called.wait(2)
-        assert runner.get_job(youtube_id).error_code == "JOB_INTERRUPTED"
+        assert runner.get_job(source_key).error_code == "JOB_INTERRUPTED"
         assert runner.get_job(local_id).status in {"running", "succeeded"}
     finally:
         runner.stop()

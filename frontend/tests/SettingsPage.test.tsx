@@ -71,15 +71,10 @@ describe('SettingsPage Component', () => {
     expect(useSettingsStore.getState().playbackSpeed).toBe(1.25);
   });
 
-  it('allows changing tutor language and persists in settings store', () => {
+  it('shows the fixed sentence explanation format', () => {
     renderWithClient(<SettingsPage onBackToLibrary={vi.fn()} />);
-
-    expect(useSettingsStore.getState().explanationLanguage).toBe('es');
-
-    const select = screen.getByLabelText(/Tutor Explanation Language/i) as HTMLSelectElement;
-    fireEvent.change(select, { target: { value: 'fr' } });
-
-    expect(useSettingsStore.getState().explanationLanguage).toBe('fr');
+    expect(screen.queryByLabelText(/Tutor Explanation Language/i)).toBeNull();
+    expect(screen.getByText(/Sentence explanations use a Spanish translation/i)).toBeInTheDocument();
   });
 
   it('renders configuration guide and does NOT render any password or secret key inputs', () => {

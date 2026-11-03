@@ -11,7 +11,7 @@ El problema principal era la carga de decisiones: reproductor, dictado, grabaci�
 - **Continuidad:** borradores guardados localmente, biblioteca actualizada al regresar y protección contra mostrar otro video durante una carga fallida.
 - **Grabación:** los cambios de actividad se bloquean mientras se graba. Descartar completa la navegación solicitada.
 - **Importación:** validación del enlace, opciones avanzadas plegadas, cierre con Escape, foco contenido en el diálogo, recuperación del foco y nueva importación después de completar un trabajo.
-- **Archivos locales:** importación de MP4/WebM con reproducción nativa y transcripción local. No depende de YouTube ni de cookies; permanece disponible durante una pausa de importaciones de YouTube.
+- **Archivos locales:** importación de MP4/WebM con reproducción nativa y transcripción local. El video se procesa y reproduce desde el almacenamiento local.
 - **Legibilidad:** colores coherentes, más espacio, controles táctiles, indicadores de foco y respeto a movimiento reducido. Se sustituyeron identificadores internos y métricas de edición por mensajes de práctica.
 - **Tutor:** se eliminó la solicitud duplicada al abrir el panel; las notas respetan la preferencia del idioma de explicación.
 - **Ajustes:** las preferencias de estudio aparecen antes que el diagnóstico técnico.

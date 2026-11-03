@@ -8,7 +8,6 @@ import {
   Sparkles,
   Volume2,
   Repeat,
-  Globe,
   Gauge,
   Key,
   Shield,
@@ -27,11 +26,9 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ onBackToLibrary }) =
     playbackSpeed,
     autoLoop,
     soundEffect,
-    explanationLanguage,
     setPlaybackSpeed,
     setAutoLoop,
     setSoundEffect,
-    setExplanationLanguage,
   } = useSettingsStore();
 
   const {
@@ -114,31 +111,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ onBackToLibrary }) =
               </div>
             </div>
 
-            {/* Default Explanation Language */}
-            <div className="space-y-2">
-              <label htmlFor="pref-lang" className="text-xs font-semibold text-white flex items-center space-x-2">
-                <Globe className="w-3.5 h-3.5 text-accent" />
-                <span>Tutor Explanation Language</span>
-              </label>
-              <p className="text-[11px] text-text-secondary">
-                Target language for AI contextual explanations
-              </p>
-              <div className="pt-1">
-                <select
-                  id="pref-lang"
-                  value={explanationLanguage}
-                  onChange={(e) => setExplanationLanguage(e.target.value)}
-                  className="px-3 py-1.5 rounded-control bg-surface-raised border border-border text-xs text-white focus:outline-none focus:ring-1 focus:ring-accent"
-                >
-                  <option value="es">Spanish (Español)</option>
-                  <option value="en">English</option>
-                  <option value="fr">French (Français)</option>
-                  <option value="de">German (Deutsch)</option>
-                  <option value="ja">Japanese (日本語)</option>
-                  <option value="pt">Portuguese (Português)</option>
-                </select>
-              </div>
-            </div>
+            <p className="text-xs text-text-secondary">Sentence explanations use a Spanish translation, English learning notes and British pronunciation tips.</p>
 
             {/* Auto-Loop Toggle */}
             <div className="space-y-2">
@@ -317,18 +290,6 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ onBackToLibrary }) =
           </div>
         </section>
 
-        <section aria-labelledby="youtube-import-heading" className="p-6 rounded-panel bg-surface border border-border space-y-4">
-          <h2 id="youtube-import-heading" className="text-base font-semibold">YouTube import help</h2>
-          <p className="text-sm text-text-secondary leading-relaxed">YouTube sometimes limits automatic imports or asks for verification. Your link can be correct and still be blocked. Wait before retrying; opening a video in your browser does not automatically sign the app in.</p>
-          <details className="text-sm text-text-secondary space-y-3">
-            <summary className="cursor-pointer text-accent">Optional: use a local YouTube session</summary>
-            <p>If you choose to use your session, follow the official export instructions and keep the cookies file private on this computer. The app never reads your browser cookies automatically.</p>
-            <p>Add the file path to <code>backend/.env</code>, then restart the backend:</p>
-            <pre className="bg-background rounded-xl p-4 overflow-x-auto text-xs"><code>YOUTUBE_COOKIES_FILE=./data/youtube-cookies.txt</code></pre>
-            <p>Using an account for automated downloads can risk account restrictions. Anonymous imports remain the default. Do not paste cookies into this app or chat.</p>
-            <a href="https://github.com/yt-dlp/yt-dlp/wiki/Extractors#exporting-youtube-cookies" target="_blank" rel="noopener noreferrer" className="inline-block underline text-accent">Official YouTube session export instructions</a>
-          </details>
-        </section>
 
         {/* Section 4: Privacy & Offline Boundaries */}
         <section className="p-4 rounded-panel bg-surface-raised/40 border border-border/60 flex items-start space-x-3 text-xs text-text-secondary leading-relaxed">
@@ -336,7 +297,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ onBackToLibrary }) =
           <div className="space-y-1">
             <h3 className="font-semibold text-white">Local Privacy Boundaries</h3>
             <p>
-              ASR speech recognition and dictation processing execute 100% locally on your machine with zero external telemetry. YouTube video playback requires an internet connection to stream iframe video frames.
+              ASR speech recognition and dictation processing execute 100% locally on your machine with zero external telemetry. Uploaded videos play directly from local storage.
             </p>
           </div>
         </section>

@@ -37,6 +37,44 @@ describe('DictationBox Component', () => {
     vi.spyOn(apiClient, 'createSession').mockResolvedValue(mockSession);
   });
 
+  it('checks completed words in order and keeps incomplete words neutral', () => {
+    renderWithQueryClient(<DictationBox segment={{ ...sampleSegment, text: 'We see the world.' }} />);
+    const input = screen.getByRole('textbox');
+    fireEvent.change(input, { target: { value: 'the' } });
+    expect(screen.queryByLabelText('Word 1: check this word')).toBeNull();
+    fireEvent.change(input, { target: { value: 'the ' } });
+    expect(screen.getByLabelText('Word 1: check this word')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'the' })).toBeNull();
+    fireEvent.change(input, { target: { value: 'We ' } });
+    expect(screen.getByRole('button', { name: 'We' })).toBeInTheDocument();
+    expect(screen.queryByLabelText('Word 1: check this word')).toBeNull();
+  });
+
+  it('handles a second Tab after the first has moved focus', async () => {
+    vi.spyOn(apiClient, 'getHint').mockResolvedValue({ display_token_index: 0, hint_letter: 'I', hinted_display_indices: [0] });
+    useStudyStore.getState().setDraft(101, 'wrong');
+    renderWithQueryClient(<DictationBox segment={sampleSegment} />);
+    const input = screen.getByRole('textbox');
+    act(() => input.focus());
+    fireEvent.keyDown(input, { key: 'Tab' });
+    const button = screen.getByRole('button', { name: 'Check sentence' });
+    act(() => button.focus());
+    fireEvent.keyDown(button, { key: 'Tab' });
+    await waitFor(() => expect(input).toHaveValue("I'm "));
+    expect(input).toHaveFocus();
+    expect(useStudyStore.getState().sessions[101].hinted_display_indices).toEqual([0]);
+  });
+
+  it('keeps a hyphenated word whole until both parts have been entered', () => {
+    renderWithQueryClient(<DictationBox segment={{ ...sampleSegment, text: 'A passer-by helped.' }} />);
+    const input = screen.getByRole('textbox');
+    fireEvent.change(input, { target: { value: 'A passer-' } });
+    expect(screen.queryByRole('button', { name: 'passer-by' })).toBeNull();
+    fireEvent.change(input, { target: { value: 'A passer-by ' } });
+    expect(screen.getByRole('button', { name: 'passer-by' })).toBeInTheDocument();
+    expect(screen.getByRole('status')).toHaveTextContent('2 / 3 words correct');
+  });
+
   it('renders word slots with dashes capped at 8 and conceals answer text', async () => {
     renderWithQueryClient(<DictationBox segment={sampleSegment} />);
 
@@ -134,9 +172,8 @@ describe('DictationBox Component', () => {
       target: { value: "I'm learning comprehensive vocabulary." },
     });
 
-    const checkBtn = screen.getByRole('button', { name: /check sentence/i });
-    expect(checkBtn).toBeEnabled();
-    fireEvent.click(checkBtn);
+    // Finishing the sentence with punctuation submits automatically.
+    expect(textarea).toBeEnabled();
 
     // Feedback shows "Dictation completed!"
     expect(await screen.findByText('Dictation completed!')).toBeInTheDocument();
@@ -223,7 +260,7 @@ describe('DictationBox Component', () => {
     fireEvent.change(textarea, { target: { value: "I'm thinking" } });
 
     // Green matched slot for "I'm" should clear immediately
-    expect(screen.queryByText("I'm")).not.toBeInTheDocument();
+    expect(screen.queryByText("I'm")).toBeInTheDocument();
   });
 
   it('creates fresh practice session when clicking Try again', async () => {

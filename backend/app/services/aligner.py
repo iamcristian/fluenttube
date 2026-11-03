@@ -3,7 +3,7 @@ Shared Normalizer and Aligner for FluentTube AI (Python implementation).
 Implements Section 7 of the specification:
 - Unicode NFKC normalization
 - Typographic apostrophe normalization
-- Tokenization with internal apostrophes, hyphens as delimiters
+- Tokenization with internal apostrophes, hyphenated display words with punctuation-tolerant comparison
 - Explicit contraction expansion dictionary
 - Token-level Levenshtein distance with fixed tie-breaking: diagonal > omission > insertion
 - Unified round_half_up: floor(x + 0.5)
@@ -78,8 +78,8 @@ else:
     CONTRACTIONS = DEFAULT_CONTRACTIONS
 
 # Words: sequence of letters/digits with internal apostrophes
-# Hyphens and exterior punctuation serve as delimiters
-WORD_PATTERN = re.compile(r"[^\W_]+(?:'[^\W_]+)*")
+# Internal hyphens stay visible; exterior punctuation serves as delimiters
+WORD_PATTERN = re.compile(r"[^\W_]+(?:['\-\u2010\u2011][^\W_]+)*")
 
 
 @dataclass(frozen=True)
@@ -188,7 +188,7 @@ def normalize_text(text: str, is_input: bool = False) -> NormalizedText:
     Executes Section 7.1 Pipeline v1:
     1. Unicode NFKC normalization
     2. Normalize typographic apostrophes to ASCII '
-    3. Extract words (sequences of letters/digits with internal apostrophes; hyphens delimit)
+    3. Extract words (sequences of letters/digits with internal apostrophes; internal hyphens remain in display words)
     4. Retain original text for display, convert to lowercase for comparison
     5. Expand whole tokens via explicit dictionary
     10. Clamp input to 2000 chars and 256 tokens
@@ -219,10 +219,8 @@ def normalize_text(text: str, is_input: bool = False) -> NormalizedText:
         end_char = match.end()
 
         lowered = word_text.lower()
-        if lowered in CONTRACTIONS:
-            expanded = CONTRACTIONS[lowered]
-        else:
-            expanded = [lowered]
+        expanded = [piece for part in re.split(r"[-‐‑]", lowered)
+                    for piece in CONTRACTIONS.get(part, [part])]
 
         display_index = len(display_tokens)
         canonical_indices: list[int] = []

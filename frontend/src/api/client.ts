@@ -1,7 +1,6 @@
 import {
   ApiErrorPayload,
   HealthResponse,
-  IngestRequestDTO,
   IngestResponseDTO,
   JobDTO,
   PaginatedResponse,
@@ -103,11 +102,6 @@ export const apiClient = {
   getJob: (jobId: string): Promise<JobDTO> => request<JobDTO>(`/jobs/${jobId}`),
   resumeLocalJob: (jobId: string): Promise<JobDTO> => request<JobDTO>(`/jobs/${jobId}/resume`, { method: 'POST' }),
   getLocalImports: (): Promise<JobDTO[]> => request<JobDTO[]>('/jobs/recoverable/local'),
-  ingestVideo: (data: IngestRequestDTO): Promise<IngestResponseDTO> =>
-    request<IngestResponseDTO>('/videos/ingest', {
-      method: 'POST',
-      body: JSON.stringify(data),
-    }),
   getVideos: (limit: number = 50, offset: number = 0): Promise<PaginatedResponse<VideoSummaryDTO>> =>
     request<PaginatedResponse<VideoSummaryDTO>>(`/videos?limit=${limit}&offset=${offset}`),
   deleteVideo: (id: number): Promise<{ deleted: boolean; video_id: number; segment_ids: number[] }> =>

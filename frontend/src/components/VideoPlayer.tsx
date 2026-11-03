@@ -12,7 +12,7 @@ import {
   Info,
 } from 'lucide-react';
 import { PlayerAdapter, PlayerError, PlayerState } from '../player/types';
-import { useYouTubePlayer } from '../player/useYouTubePlayer';
+import { useVideoPlayer } from '../player/useVideoPlayer';
 import { useSegmentPlayback } from '../player/useSegmentPlayback';
 import { useSettingsStore } from '../stores/useSettingsStore';
 import { useEffect } from 'react';
@@ -70,7 +70,7 @@ export const VideoPlayer = forwardRef<VideoPlayerRef, VideoPlayerProps>(({
     pause,
     seekTo,
     setPlaybackRate,
-  } = useYouTubePlayer({
+  } = useVideoPlayer({
     containerRef,
     videoId,
     mediaUrl,
@@ -165,11 +165,11 @@ export const VideoPlayer = forwardRef<VideoPlayerRef, VideoPlayerProps>(({
     >
       {/* 16:9 Video Player Container (minimum 200px on mobile per Section 8) */}
       <div className="w-full aspect-video min-h-[200px] bg-black relative flex items-center justify-center overflow-hidden">
-        {/* Native YouTube iframe target */}
+        {/* Native video container */}
         <div
           ref={containerRef}
           className="w-full h-full"
-          data-testid="youtube-iframe-container"
+          data-testid="local-video-container"
         />
 
         {/* Loading overlay */}
@@ -180,7 +180,7 @@ export const VideoPlayer = forwardRef<VideoPlayerRef, VideoPlayerProps>(({
           >
             <Loader2 className="w-8 h-8 text-accent animate-spin" />
             <p className="text-xs text-text-secondary font-mono">
-              {mediaUrl ? 'Loading your local video...' : 'Loading YouTube player...'}
+              Loading your local video...
             </p>
           </div>
         )}
@@ -216,21 +216,19 @@ export const VideoPlayer = forwardRef<VideoPlayerRef, VideoPlayerProps>(({
             </div>
             <div className="space-y-1 max-w-sm">
               <h3 className="text-sm font-bold text-white">
-                {error.isEmbedRestricted
-                  ? 'Embedding Restricted by Video Owner'
-                  : mediaUrl ? 'Local Video Playback Unavailable' : 'YouTube Playback Unavailable'}
+                Local Video Playback Unavailable
               </h3>
               <p className="text-xs text-danger/90 leading-relaxed">{error.message}</p>
             </div>
-            <a
+            {error.videoUrl && <a
               href={error.videoUrl}
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex items-center space-x-2 px-4 py-2 bg-surface-raised hover:bg-surface border border-border text-white text-xs font-semibold rounded-control shadow-md transition"
             >
-              <span>{mediaUrl ? 'Open local video' : 'Watch on YouTube'}</span>
+              <span>Open local video</span>
               <ExternalLink className="w-3.5 h-3.5 text-accent" />
-            </a>
+            </a>}
           </div>
         )}
       </div>

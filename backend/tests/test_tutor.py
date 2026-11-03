@@ -69,7 +69,7 @@ def client_fixture(db_session: Session):
 # Helper to seed a test video with 3 segments
 def seed_test_video(session: Session, completed: bool = True, revealed: bool = False):
     video = Video(
-        youtube_id="tutor_test_vid",
+        source_key="tutor_test_vid",
         title="Tutor Test Video",
         duration_seconds=30.0,
         transcription_source="captions_manual",
@@ -144,9 +144,10 @@ class MockTutorClient(BaseTutorClient):
 
 
 VALID_TUTOR_JSON = json.dumps({
+    "spanish_translation": "Estoy intentando entender cómo funciona esto.",
     "contextual_meaning": "The speaker expresses that they have been trying to understand it for a while.",
     "key_vocabulary": [
-        {"term": "figure out", "type": "phrasal_verb", "explanation": "To understand or solve something."}
+        {"term": "figure out", "type": "phrasal_verb", "explanation": "To understand or solve something.", "example": "I finally figured out the answer."}
     ],
     "connected_speech": [
         {"fragment": "trying to", "tip": "The vowel in 'to' can reduce in fast speech."}
@@ -306,7 +307,9 @@ def test_tutor_valid_json_response_and_caching(client: TestClient, db_session: S
     data1 = resp1.json()
     assert data1["cached"] is False
     assert data1["segment_id"] == target_segment.id
-    assert data1["language"] == "es"
+    assert data1["language"] == "en"
+    assert data1["spanish_translation"]
+    assert data1["key_vocabulary"][0]["example"]
     assert data1["contextual_meaning"] == "The speaker expresses that they have been trying to understand it for a while."
     assert len(data1["key_vocabulary"]) == 1
     assert data1["key_vocabulary"][0]["term"] == "figure out"
@@ -318,7 +321,7 @@ def test_tutor_valid_json_response_and_caching(client: TestClient, db_session: S
     # Verify persisted in database TutorCache
     cached_row = db_session.exec(select(TutorCache).where(TutorCache.segment_id == target_segment.id)).first()
     assert cached_row is not None
-    assert cached_row.language == "es"
+    assert cached_row.language == "en"
 
     # Second call: cache hit
     resp2 = client.post(
@@ -333,8 +336,8 @@ def test_tutor_valid_json_response_and_caching(client: TestClient, db_session: S
     assert mock_client.call_count == 1
 
 
-def test_tutor_cache_invalidation_on_language_change(client: TestClient, db_session: Session, monkeypatch):
-    """Changing explanation language invalidates cache and triggers a fresh provider call."""
+def test_tutor_fixed_profile_ignores_old_language_preferences(client: TestClient, db_session: Session, monkeypatch):
+    """Old language preferences use the same fixed bilingual profile."""
     monkeypatch.setattr(settings, "TUTOR_ENABLED", True)
     monkeypatch.setattr(settings, "GEMINI_API_KEY", "test_key")
 
@@ -353,8 +356,9 @@ def test_tutor_cache_invalidation_on_language_change(client: TestClient, db_sess
     # 2. French call: cache miss because language differs
     resp_fr = client.post("/api/tutor/explain", json={"segment_id": target.id, "language": "fr"})
     assert resp_fr.status_code == 200
-    assert resp_fr.json()["cached"] is False
-    assert mock_client.call_count == 2
+    assert resp_fr.json()["cached"] is True
+    assert resp_fr.json()["language"] == "en"
+    assert mock_client.call_count == 1
 
 
 def test_tutor_single_repair_retry_on_malformed_json_succeeds(
@@ -482,7 +486,7 @@ def test_tutor_prompt_injection_treated_as_data(db_session: Session):
     """
     service = TutorService()
     video = Video(
-        youtube_id="injection_vid",
+        source_key="injection_vid",
         title="Adversarial Video",
         duration_seconds=10.0,
         transcription_source="captions_manual",

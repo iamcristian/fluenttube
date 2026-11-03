@@ -90,6 +90,73 @@
         }
       }
     },
+    "/api/jobs/{job_id}/resume": {
+      "post": {
+        "tags": [
+          "jobs"
+        ],
+        "summary": "Resume Local Import",
+        "operationId": "resume_local_import_api_jobs__job_id__resume_post",
+        "parameters": [
+          {
+            "name": "job_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Job Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobDTO"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/jobs/recoverable/local": {
+      "get": {
+        "tags": [
+          "jobs"
+        ],
+        "summary": "Get Recoverable Local Imports",
+        "operationId": "get_recoverable_local_imports_api_jobs_recoverable_local_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/JobDTO"
+                  },
+                  "type": "array",
+                  "title": "Response Get Recoverable Local Imports Api Jobs Recoverable Local Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/jobs/{job_id}": {
       "get": {
         "tags": [
@@ -133,30 +200,31 @@
         }
       }
     },
-    "/api/videos/ingest": {
+    "/jobs/{job_id}/resume": {
       "post": {
         "tags": [
-          "videos"
+          "jobs"
         ],
-        "summary": "Ingest Video",
-        "operationId": "ingest_video_api_videos_ingest_post",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/IngestRequestDTO"
-              }
+        "summary": "Resume Local Import",
+        "operationId": "resume_local_import_jobs__job_id__resume_post",
+        "parameters": [
+          {
+            "name": "job_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Job Id"
             }
-          },
-          "required": true
-        },
+          }
+        ],
         "responses": {
           "200": {
             "description": "Successful Response",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/IngestResponseDTO"
+                  "$ref": "#/components/schemas/JobDTO"
                 }
               }
             }
@@ -167,6 +235,31 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/jobs/recoverable/local": {
+      "get": {
+        "tags": [
+          "jobs"
+        ],
+        "summary": "Get Recoverable Local Imports",
+        "operationId": "get_recoverable_local_imports_jobs_recoverable_local_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/JobDTO"
+                  },
+                  "type": "array",
+                  "title": "Response Get Recoverable Local Imports Jobs Recoverable Local Get"
                 }
               }
             }
@@ -270,6 +363,49 @@
             }
           }
         }
+      },
+      "delete": {
+        "tags": [
+          "videos"
+        ],
+        "summary": "Delete Video",
+        "description": "Remove a video, its practice history, caches, and any owned local media.",
+        "operationId": "delete_video_api_videos__id__delete",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Delete Video Api Videos  Id  Delete"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/api/videos/{id}/progress": {
@@ -307,47 +443,6 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/VideoProgressResponseDTO"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/videos/ingest": {
-      "post": {
-        "tags": [
-          "videos"
-        ],
-        "summary": "Ingest Video",
-        "operationId": "ingest_video_videos_ingest_post",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/IngestRequestDTO"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/IngestResponseDTO"
                 }
               }
             }
@@ -461,6 +556,49 @@
             }
           }
         }
+      },
+      "delete": {
+        "tags": [
+          "videos"
+        ],
+        "summary": "Delete Video",
+        "description": "Remove a video, its practice history, caches, and any owned local media.",
+        "operationId": "delete_video_videos__id__delete",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Delete Video Videos  Id  Delete"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/videos/{id}/progress": {
@@ -514,10 +652,1376 @@
           }
         }
       }
+    },
+    "/api/videos/upload": {
+      "post": {
+        "tags": [
+          "local videos"
+        ],
+        "summary": "Upload Local Video",
+        "operationId": "upload_local_video_api_videos_upload_post",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_upload_local_video_api_videos_upload_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IngestResponseDTO"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/videos/{video_id}/media": {
+      "get": {
+        "tags": [
+          "local videos"
+        ],
+        "summary": "Get Local Video",
+        "operationId": "get_local_video_api_videos__video_id__media_get",
+        "parameters": [
+          {
+            "name": "video_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Video Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "head": {
+        "tags": [
+          "local videos"
+        ],
+        "summary": "Get Local Video",
+        "operationId": "get_local_video_api_videos__video_id__media_get",
+        "parameters": [
+          {
+            "name": "video_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Video Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/segments/{id}/sessions": {
+      "post": {
+        "tags": [
+          "dictation"
+        ],
+        "summary": "Create Practice Session",
+        "operationId": "create_practice_session_api_segments__id__sessions_post",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SessionCreateDTO"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionResponseDTO"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/sessions/{id}": {
+      "get": {
+        "tags": [
+          "dictation"
+        ],
+        "summary": "Get Practice Session",
+        "operationId": "get_practice_session_api_sessions__id__get",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionResponseDTO"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/sessions/{id}/hint": {
+      "post": {
+        "tags": [
+          "dictation"
+        ],
+        "summary": "Get Hint",
+        "operationId": "get_hint_api_sessions__id__hint_post",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HintRequestDTO"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HintResponseDTO"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/sessions/{id}/reveal": {
+      "post": {
+        "tags": [
+          "dictation"
+        ],
+        "summary": "Reveal Answer",
+        "operationId": "reveal_answer_api_sessions__id__reveal_post",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RevealResponseDTO"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/sessions/{id}/check": {
+      "post": {
+        "tags": [
+          "dictation"
+        ],
+        "summary": "Check Dictation",
+        "operationId": "check_dictation_api_sessions__id__check_post",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CheckRequestDTO"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DictationResultDTO"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/segments/{id}/sessions": {
+      "post": {
+        "tags": [
+          "dictation"
+        ],
+        "summary": "Create Practice Session",
+        "operationId": "create_practice_session_segments__id__sessions_post",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SessionCreateDTO"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionResponseDTO"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/sessions/{id}": {
+      "get": {
+        "tags": [
+          "dictation"
+        ],
+        "summary": "Get Practice Session",
+        "operationId": "get_practice_session_sessions__id__get",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionResponseDTO"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/sessions/{id}/hint": {
+      "post": {
+        "tags": [
+          "dictation"
+        ],
+        "summary": "Get Hint",
+        "operationId": "get_hint_sessions__id__hint_post",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HintRequestDTO"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HintResponseDTO"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/sessions/{id}/reveal": {
+      "post": {
+        "tags": [
+          "dictation"
+        ],
+        "summary": "Reveal Answer",
+        "operationId": "reveal_answer_sessions__id__reveal_post",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RevealResponseDTO"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/sessions/{id}/check": {
+      "post": {
+        "tags": [
+          "dictation"
+        ],
+        "summary": "Check Dictation",
+        "operationId": "check_dictation_sessions__id__check_post",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CheckRequestDTO"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DictationResultDTO"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/shadowing/evaluate": {
+      "post": {
+        "tags": [
+          "shadowing"
+        ],
+        "summary": "Upload audio recording and enqueue shadowing evaluation job",
+        "description": "Validates uploaded audio, checks that the target segment is unlocked,\ntranscodes audio to 16 kHz mono WAV, and enqueues a background evaluation job.",
+        "operationId": "evaluate_shadowing_api_shadowing_evaluate_post",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_evaluate_shadowing_api_shadowing_evaluate_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ShadowingEvaluateResponseDTO"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/segments/{id}/shadowing-attempts": {
+      "get": {
+        "tags": [
+          "shadowing"
+        ],
+        "summary": "List shadowing attempts for a segment",
+        "description": "Return paginated shadowing practice attempts for a segment,\nordered by created_at DESC, id DESC.",
+        "operationId": "list_shadowing_attempts_api_segments__id__shadowing_attempts_get",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Id"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "default": 20,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0,
+              "title": "Offset"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ShadowingAttemptListDTO"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/shadowing/evaluate": {
+      "post": {
+        "tags": [
+          "shadowing"
+        ],
+        "summary": "Upload audio recording and enqueue shadowing evaluation job",
+        "description": "Validates uploaded audio, checks that the target segment is unlocked,\ntranscodes audio to 16 kHz mono WAV, and enqueues a background evaluation job.",
+        "operationId": "evaluate_shadowing_shadowing_evaluate_post",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_evaluate_shadowing_shadowing_evaluate_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ShadowingEvaluateResponseDTO"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/segments/{id}/shadowing-attempts": {
+      "get": {
+        "tags": [
+          "shadowing"
+        ],
+        "summary": "List shadowing attempts for a segment",
+        "description": "Return paginated shadowing practice attempts for a segment,\nordered by created_at DESC, id DESC.",
+        "operationId": "list_shadowing_attempts_segments__id__shadowing_attempts_get",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Id"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "default": 20,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0,
+              "title": "Offset"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ShadowingAttemptListDTO"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/tutor/explain": {
+      "post": {
+        "tags": [
+          "tutor"
+        ],
+        "summary": "Get contextual grammar tutor explanation for a segment",
+        "description": "Returns structured B2 pedagogical analysis of the target sentence.\nRequires the segment to be completed or revealed (status 409 if locked).\nReturns 503 if tutor is unconfigured/disabled.\nReturns 429 if provider quota is exceeded.",
+        "operationId": "explain_segment_api_tutor_explain_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TutorExplainRequestDTO"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TutorExplanationDTO"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/tutor/explain": {
+      "post": {
+        "tags": [
+          "tutor"
+        ],
+        "summary": "Get contextual grammar tutor explanation for a segment",
+        "description": "Returns structured B2 pedagogical analysis of the target sentence.\nRequires the segment to be completed or revealed (status 409 if locked).\nReturns 503 if tutor is unconfigured/disabled.\nReturns 429 if provider quota is exceeded.",
+        "operationId": "explain_segment_tutor_explain_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TutorExplainRequestDTO"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TutorExplanationDTO"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/vocabulary/explain": {
+      "post": {
+        "tags": [
+          "vocabulary"
+        ],
+        "summary": "Get contextual vocabulary explanation for a term in a segment",
+        "description": "Returns structured explanation of a word, phrasal verb, or idiom in segment context.\nCached first in SQLite VocabularyCache; generates via local LLM (Ollama) or configured provider.",
+        "operationId": "explain_vocabulary_term_api_vocabulary_explain_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VocabularyExplainRequestDTO"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VocabularyExplainResponseDTO"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/vocabulary/explain": {
+      "post": {
+        "tags": [
+          "vocabulary"
+        ],
+        "summary": "Get contextual vocabulary explanation for a term in a segment",
+        "description": "Returns structured explanation of a word, phrasal verb, or idiom in segment context.\nCached first in SQLite VocabularyCache; generates via local LLM (Ollama) or configured provider.",
+        "operationId": "explain_vocabulary_term_vocabulary_explain_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VocabularyExplainRequestDTO"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VocabularyExplainResponseDTO"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/british/audio": {
+      "get": {
+        "tags": [
+          "british"
+        ],
+        "summary": "Get British Audio",
+        "description": "Returns studio-grade British neural audio (en-GB-RyanNeural) for any word or sentence.\nZero tokens, zero VRAM, cached locally as MP3.",
+        "operationId": "get_british_audio_api_british_audio_get",
+        "parameters": [
+          {
+            "name": "text",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200,
+              "description": "Word or phrase to speak in British English",
+              "title": "Text"
+            },
+            "description": "Word or phrase to speak in British English"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/british/dictionary": {
+      "get": {
+        "tags": [
+          "british"
+        ],
+        "summary": "Get Dictionary Entry",
+        "description": "Returns British IPA, part of speech, English definition, and audio link.\nPersisted deterministically in SQLite DictionaryCache.",
+        "operationId": "get_dictionary_entry_api_british_dictionary_get",
+        "parameters": [
+          {
+            "name": "word",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100,
+              "description": "Word to look up",
+              "title": "Word"
+            },
+            "description": "Word to look up"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DictionaryEntryDTO"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
     "schemas": {
+      "AlignmentOpDTO": {
+        "properties": {
+          "op": {
+            "type": "string",
+            "title": "Op",
+            "description": "match | substitution | insertion | omission"
+          },
+          "target_index": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Index"
+          },
+          "input_index": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Input Index"
+          },
+          "target": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target"
+          },
+          "input": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Input"
+          }
+        },
+        "type": "object",
+        "required": [
+          "op"
+        ],
+        "title": "AlignmentOpDTO"
+      },
+      "Body_evaluate_shadowing_api_shadowing_evaluate_post": {
+        "properties": {
+          "audio_file": {
+            "type": "string",
+            "format": "binary",
+            "title": "Audio File"
+          },
+          "segment_id": {
+            "type": "integer",
+            "title": "Segment Id"
+          },
+          "client_request_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Client Request Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "audio_file",
+          "segment_id"
+        ],
+        "title": "Body_evaluate_shadowing_api_shadowing_evaluate_post"
+      },
+      "Body_evaluate_shadowing_shadowing_evaluate_post": {
+        "properties": {
+          "audio_file": {
+            "type": "string",
+            "format": "binary",
+            "title": "Audio File"
+          },
+          "segment_id": {
+            "type": "integer",
+            "title": "Segment Id"
+          },
+          "client_request_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Client Request Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "audio_file",
+          "segment_id"
+        ],
+        "title": "Body_evaluate_shadowing_shadowing_evaluate_post"
+      },
+      "Body_upload_local_video_api_videos_upload_post": {
+        "properties": {
+          "video_file": {
+            "type": "string",
+            "format": "binary",
+            "title": "Video File"
+          }
+        },
+        "type": "object",
+        "required": [
+          "video_file"
+        ],
+        "title": "Body_upload_local_video_api_videos_upload_post"
+      },
+      "CheckRequestDTO": {
+        "properties": {
+          "input_text": {
+            "type": "string",
+            "maxLength": 2000,
+            "title": "Input Text"
+          },
+          "client_request_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Client Request Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "input_text"
+        ],
+        "title": "CheckRequestDTO"
+      },
+      "DictationResultDTO": {
+        "properties": {
+          "attempt_id": {
+            "type": "integer",
+            "title": "Attempt Id"
+          },
+          "is_exact": {
+            "type": "boolean",
+            "title": "Is Exact"
+          },
+          "score": {
+            "type": "number",
+            "title": "Score"
+          },
+          "distance": {
+            "type": "integer",
+            "title": "Distance"
+          },
+          "completed": {
+            "type": "boolean",
+            "title": "Completed"
+          },
+          "shadowing_unlocked": {
+            "type": "boolean",
+            "title": "Shadowing Unlocked"
+          },
+          "assisted": {
+            "type": "boolean",
+            "title": "Assisted"
+          },
+          "alignment": {
+            "items": {
+              "$ref": "#/components/schemas/AlignmentOpDTO"
+            },
+            "type": "array",
+            "title": "Alignment"
+          },
+          "rules_version": {
+            "type": "string",
+            "title": "Rules Version"
+          }
+        },
+        "type": "object",
+        "required": [
+          "attempt_id",
+          "is_exact",
+          "score",
+          "distance",
+          "completed",
+          "shadowing_unlocked",
+          "assisted",
+          "alignment",
+          "rules_version"
+        ],
+        "title": "DictationResultDTO"
+      },
+      "DictionaryEntryDTO": {
+        "properties": {
+          "word": {
+            "type": "string",
+            "title": "Word"
+          },
+          "phonetic_uk": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Phonetic Uk"
+          },
+          "part_of_speech": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Part Of Speech"
+          },
+          "definition_en": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Definition En"
+          },
+          "definition_es": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Definition Es"
+          },
+          "example_en": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Example En"
+          },
+          "audio_url": {
+            "type": "string",
+            "title": "Audio Url"
+          },
+          "cached": {
+            "type": "boolean",
+            "title": "Cached",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "word",
+          "audio_url"
+        ],
+        "title": "DictionaryEntryDTO"
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -564,39 +2068,44 @@
         ],
         "title": "HealthResponseDTO"
       },
-      "IngestRequestDTO": {
+      "HintRequestDTO": {
         "properties": {
-          "url": {
-            "type": "string",
-            "title": "Url"
-          },
-          "force": {
-            "type": "boolean",
-            "title": "Force",
-            "default": false
-          },
-          "force_gpu_whisper": {
-            "type": "boolean",
-            "title": "Force Gpu Whisper",
-            "default": false
-          },
-          "client_request_id": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Client Request Id"
+          "display_token_index": {
+            "type": "integer",
+            "title": "Display Token Index"
           }
         },
         "type": "object",
         "required": [
-          "url"
+          "display_token_index"
         ],
-        "title": "IngestRequestDTO"
+        "title": "HintRequestDTO"
+      },
+      "HintResponseDTO": {
+        "properties": {
+          "display_token_index": {
+            "type": "integer",
+            "title": "Display Token Index"
+          },
+          "hint_letter": {
+            "type": "string",
+            "title": "Hint Letter"
+          },
+          "hinted_display_indices": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "title": "Hinted Display Indices"
+          }
+        },
+        "type": "object",
+        "required": [
+          "display_token_index",
+          "hint_letter",
+          "hinted_display_indices"
+        ],
+        "title": "HintResponseDTO"
       },
       "IngestResponseDTO": {
         "properties": {
@@ -645,7 +2154,7 @@
           "kind": {
             "type": "string",
             "title": "Kind",
-            "description": "ingest | shadowing | anki_export"
+            "description": "local_ingest | shadowing"
           },
           "status": {
             "type": "string",
@@ -786,6 +2295,29 @@
         ],
         "title": "PaginatedResponse[VideoSummaryDTO]"
       },
+      "RevealResponseDTO": {
+        "properties": {
+          "text": {
+            "type": "string",
+            "title": "Text"
+          },
+          "shadowing_unlocked": {
+            "type": "boolean",
+            "title": "Shadowing Unlocked",
+            "default": true
+          },
+          "completed": {
+            "type": "boolean",
+            "title": "Completed"
+          }
+        },
+        "type": "object",
+        "required": [
+          "text",
+          "completed"
+        ],
+        "title": "RevealResponseDTO"
+      },
       "SegmentDTO": {
         "properties": {
           "id": {
@@ -866,6 +2398,210 @@
         ],
         "title": "SegmentDTO"
       },
+      "SessionCreateDTO": {
+        "properties": {
+          "client_request_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Client Request Id"
+          }
+        },
+        "type": "object",
+        "title": "SessionCreateDTO"
+      },
+      "SessionResponseDTO": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "segment_id": {
+            "type": "integer",
+            "title": "Segment Id"
+          },
+          "hinted_display_indices": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "title": "Hinted Display Indices"
+          },
+          "answer_revealed": {
+            "type": "boolean",
+            "title": "Answer Revealed",
+            "default": false
+          },
+          "last_input": {
+            "type": "string",
+            "title": "Last Input",
+            "default": ""
+          },
+          "last_result": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Result"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "segment_id",
+          "created_at"
+        ],
+        "title": "SessionResponseDTO"
+      },
+      "ShadowingAttemptDTO": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "segment_id": {
+            "type": "integer",
+            "title": "Segment Id"
+          },
+          "job_id": {
+            "type": "string",
+            "title": "Job Id"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status",
+            "description": "scored | unscorable"
+          },
+          "recognized_text": {
+            "type": "string",
+            "title": "Recognized Text"
+          },
+          "word_match_score": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Word Match Score"
+          },
+          "timing_similarity_score": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Timing Similarity Score"
+          },
+          "overall_score": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Overall Score"
+          },
+          "alignment": {
+            "items": {},
+            "type": "array",
+            "title": "Alignment"
+          },
+          "warning_codes": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Warning Codes"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "segment_id",
+          "job_id",
+          "status",
+          "recognized_text",
+          "created_at"
+        ],
+        "title": "ShadowingAttemptDTO"
+      },
+      "ShadowingAttemptListDTO": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ShadowingAttemptDTO"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "limit": {
+            "type": "integer",
+            "title": "Limit"
+          },
+          "offset": {
+            "type": "integer",
+            "title": "Offset"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "total",
+          "limit",
+          "offset"
+        ],
+        "title": "ShadowingAttemptListDTO"
+      },
+      "ShadowingEvaluateResponseDTO": {
+        "properties": {
+          "job_id": {
+            "type": "string",
+            "title": "Job Id"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status",
+            "default": "queued"
+          }
+        },
+        "type": "object",
+        "required": [
+          "job_id"
+        ],
+        "title": "ShadowingEvaluateResponseDTO"
+      },
       "SpeechHealthDTO": {
         "properties": {
           "state": {
@@ -944,6 +2680,131 @@
         "type": "object",
         "title": "SpeechHealthDTO"
       },
+      "TutorConnectedSpeechItem": {
+        "properties": {
+          "fragment": {
+            "type": "string",
+            "maxLength": 100,
+            "title": "Fragment"
+          },
+          "tip": {
+            "type": "string",
+            "maxLength": 600,
+            "title": "Tip"
+          }
+        },
+        "type": "object",
+        "required": [
+          "fragment",
+          "tip"
+        ],
+        "title": "TutorConnectedSpeechItem"
+      },
+      "TutorExampleItem": {
+        "properties": {
+          "sentence": {
+            "type": "string",
+            "maxLength": 300,
+            "title": "Sentence"
+          },
+          "explanation": {
+            "type": "string",
+            "maxLength": 600,
+            "title": "Explanation"
+          }
+        },
+        "type": "object",
+        "required": [
+          "sentence",
+          "explanation"
+        ],
+        "title": "TutorExampleItem"
+      },
+      "TutorExplainRequestDTO": {
+        "properties": {
+          "segment_id": {
+            "type": "integer",
+            "title": "Segment Id"
+          },
+          "language": {
+            "type": "string",
+            "maxLength": 10,
+            "title": "Language",
+            "default": "es"
+          }
+        },
+        "type": "object",
+        "required": [
+          "segment_id"
+        ],
+        "title": "TutorExplainRequestDTO"
+      },
+      "TutorExplanationDTO": {
+        "properties": {
+          "spanish_translation": {
+            "type": "string",
+            "maxLength": 1200,
+            "minLength": 1,
+            "title": "Spanish Translation"
+          },
+          "contextual_meaning": {
+            "type": "string",
+            "maxLength": 1200,
+            "title": "Contextual Meaning"
+          },
+          "key_vocabulary": {
+            "items": {
+              "$ref": "#/components/schemas/TutorKeyVocabularyItem"
+            },
+            "type": "array",
+            "maxItems": 8,
+            "title": "Key Vocabulary"
+          },
+          "connected_speech": {
+            "items": {
+              "$ref": "#/components/schemas/TutorConnectedSpeechItem"
+            },
+            "type": "array",
+            "maxItems": 5,
+            "title": "Connected Speech"
+          },
+          "example": {
+            "$ref": "#/components/schemas/TutorExampleItem"
+          },
+          "segment_id": {
+            "type": "integer",
+            "title": "Segment Id"
+          },
+          "language": {
+            "type": "string",
+            "title": "Language"
+          },
+          "cached": {
+            "type": "boolean",
+            "title": "Cached",
+            "default": false
+          },
+          "provider": {
+            "type": "string",
+            "title": "Provider"
+          },
+          "model": {
+            "type": "string",
+            "title": "Model"
+          }
+        },
+        "type": "object",
+        "required": [
+          "spanish_translation",
+          "contextual_meaning",
+          "example",
+          "segment_id",
+          "language",
+          "provider",
+          "model"
+        ],
+        "title": "TutorExplanationDTO"
+      },
       "TutorHealthDTO": {
         "properties": {
           "enabled": {
@@ -965,6 +2826,45 @@
         },
         "type": "object",
         "title": "TutorHealthDTO"
+      },
+      "TutorKeyVocabularyItem": {
+        "properties": {
+          "example": {
+            "type": "string",
+            "maxLength": 300,
+            "minLength": 1,
+            "title": "Example"
+          },
+          "term": {
+            "type": "string",
+            "maxLength": 100,
+            "title": "Term"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "phrasal_verb",
+              "idiom",
+              "slang",
+              "grammar",
+              "word"
+            ],
+            "title": "Type"
+          },
+          "explanation": {
+            "type": "string",
+            "maxLength": 600,
+            "title": "Explanation"
+          }
+        },
+        "type": "object",
+        "required": [
+          "example",
+          "term",
+          "type",
+          "explanation"
+        ],
+        "title": "TutorKeyVocabularyItem"
       },
       "ValidationError": {
         "properties": {
@@ -1005,9 +2905,18 @@
             "type": "integer",
             "title": "Id"
           },
-          "youtube_id": {
+          "source_key": {
             "type": "string",
-            "title": "Youtube Id"
+            "title": "Source Key"
+          },
+          "source_type": {
+            "type": "string",
+            "enum": [
+              "local",
+              "unavailable"
+            ],
+            "title": "Source Type",
+            "default": "local"
           },
           "title": {
             "type": "string",
@@ -1069,7 +2978,7 @@
         "type": "object",
         "required": [
           "id",
-          "youtube_id",
+          "source_key",
           "title",
           "duration_seconds",
           "transcription_source",
@@ -1115,9 +3024,18 @@
             "type": "integer",
             "title": "Id"
           },
-          "youtube_id": {
+          "source_key": {
             "type": "string",
-            "title": "Youtube Id"
+            "title": "Source Key"
+          },
+          "source_type": {
+            "type": "string",
+            "enum": [
+              "local",
+              "unavailable"
+            ],
+            "title": "Source Type",
+            "default": "local"
           },
           "title": {
             "type": "string",
@@ -1172,13 +3090,179 @@
         "type": "object",
         "required": [
           "id",
-          "youtube_id",
+          "source_key",
           "title",
           "duration_seconds",
           "transcription_source",
           "created_at"
         ],
         "title": "VideoSummaryDTO"
+      },
+      "VocabularyExampleItem": {
+        "properties": {
+          "en": {
+            "type": "string",
+            "title": "En"
+          },
+          "translation": {
+            "type": "string",
+            "title": "Translation"
+          }
+        },
+        "type": "object",
+        "required": [
+          "en",
+          "translation"
+        ],
+        "title": "VocabularyExampleItem"
+      },
+      "VocabularyExplainRequestDTO": {
+        "properties": {
+          "segment_id": {
+            "type": "integer",
+            "title": "Segment Id"
+          },
+          "term": {
+            "type": "string",
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Term"
+          },
+          "selection_start": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Selection Start"
+          },
+          "selection_end": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Selection End"
+          },
+          "explanation_language": {
+            "type": "string",
+            "maxLength": 10,
+            "title": "Explanation Language",
+            "default": "es"
+          }
+        },
+        "type": "object",
+        "required": [
+          "segment_id",
+          "term"
+        ],
+        "title": "VocabularyExplainRequestDTO"
+      },
+      "VocabularyExplainResponseDTO": {
+        "properties": {
+          "term": {
+            "type": "string",
+            "title": "Term"
+          },
+          "lemma": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lemma"
+          },
+          "part_of_speech": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Part Of Speech"
+          },
+          "meaning_en": {
+            "type": "string",
+            "title": "Meaning En"
+          },
+          "translation": {
+            "type": "string",
+            "title": "Translation"
+          },
+          "contextual_meaning": {
+            "type": "string",
+            "title": "Contextual Meaning"
+          },
+          "usage_notes": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Usage Notes"
+          },
+          "examples": {
+            "items": {
+              "$ref": "#/components/schemas/VocabularyExampleItem"
+            },
+            "type": "array",
+            "title": "Examples"
+          },
+          "collocations": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Collocations"
+          },
+          "other_senses": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Other Senses"
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Warnings"
+          },
+          "cached": {
+            "type": "boolean",
+            "title": "Cached",
+            "default": false
+          },
+          "provider": {
+            "type": "string",
+            "title": "Provider"
+          },
+          "model": {
+            "type": "string",
+            "title": "Model"
+          }
+        },
+        "type": "object",
+        "required": [
+          "term",
+          "meaning_en",
+          "translation",
+          "contextual_meaning",
+          "provider",
+          "model"
+        ],
+        "title": "VocabularyExplainResponseDTO"
       }
     }
   }

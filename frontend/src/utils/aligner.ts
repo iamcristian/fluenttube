@@ -3,7 +3,7 @@
  * Implements Section 7 of the specification:
  * - Unicode NFKC normalization
  * - Typographic apostrophe normalization
- * - Tokenization with internal apostrophes, hyphens as delimiters
+ * - Tokenization with internal apostrophes, hyphenated display words with punctuation-tolerant comparison
  * - Explicit contraction expansion dictionary
  * - Token-level Levenshtein distance with fixed tie-breaking: diagonal > omission > insertion
  * - Unified round_half_up: floor(x + 0.5)
@@ -118,13 +118,13 @@ export function normalizeApostrophes(text: string): string {
 }
 
 // Regex matching alphanumeric sequences with internal apostrophes
-const WORD_PATTERN = /[\p{L}\p{N}]+(?:'[\p{L}\p{N}]+)*/gu;
+const WORD_PATTERN = /[\p{L}\p{N}]+(?:['\-\u2010\u2011][\p{L}\p{N}]+)*/gu;
 
 /**
  * Executes Section 7.1 Pipeline v1:
  * 1. Unicode NFKC normalization
  * 2. Normalize typographic apostrophes to ASCII '
- * 3. Extract words (sequences of letters/digits with internal apostrophes; hyphens delimit)
+ * 3. Extract words (sequences of letters/digits with internal apostrophes; internal hyphens remain in display words)
  * 4. Retain original text for display, convert to lowercase for comparison
  * 5. Expand whole tokens via explicit dictionary
  * 10. Clamp input to 2000 chars and 256 tokens
@@ -162,7 +162,7 @@ export function normalizeText(text: string, isInput = false): NormalizedText {
     const end_char = regex.lastIndex;
 
     const lowered = word_text.toLowerCase();
-    const expanded = DEFAULT_CONTRACTIONS[lowered] || [lowered];
+    const expanded = lowered.split(/[-\u2010\u2011]/).flatMap(part => DEFAULT_CONTRACTIONS[part] || [part]);
 
     const display_index = display_tokens.length;
     const canonical_indices: number[] = [];

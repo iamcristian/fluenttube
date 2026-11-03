@@ -156,48 +156,21 @@ export const DictationBox: React.FC<DictationBoxProps> = ({
     }
   }, [draft]);
 
-  // 4. Live sequential matching from left to right (FluentDictation reactive highlight)
-  const liveMatchedIndices = useMemo(() => {
-    if (isStale) return new Set<number>();
-    const matched = new Set<number>();
-    const targetTokens = targetNorm.display_tokens;
-    const userTokens = draftNorm.display_tokens;
-
-    for (let i = 0; i < targetTokens.length && i < userTokens.length; i++) {
-      const targetClean = targetTokens[i].text.toLowerCase().replace(/[^\w]/g, '');
-      const userClean = userTokens[i].text.toLowerCase().replace(/[^\w]/g, '');
-      if (targetClean === userClean) {
-        matched.add(targetTokens[i].index);
-      } else {
-        break;
-      }
-    }
-    return matched;
-  }, [targetNorm.display_tokens, draftNorm.display_tokens, isStale]);
-
-  // 5. Server-evaluated matched display tokens from latest non-stale result
-  const serverMatchedDisplayTokens = useMemo(() => {
-    if (!result || isStale) return new Set<number>();
-    const matched = new Set<number>();
-
-    for (const dt of targetNorm.display_tokens) {
-      const allCanonicalMatched = dt.canonical_indices.every((cIdx) => {
-        const op = result.alignment.find((a) => a.target_index === cIdx);
-        return op && op.op === 'match';
-      });
-      if (allCanonicalMatched) {
-        matched.add(dt.index);
-      }
-    }
-    return matched;
-  }, [result, isStale, targetNorm.display_tokens]);
-
-  // Combined matched tokens: union of server evaluated and live matched
-  const matchedDisplayTokens = useMemo(() => {
-    const combined = new Set<number>(serverMatchedDisplayTokens);
-    liveMatchedIndices.forEach((idx) => combined.add(idx));
-    return combined;
-  }, [serverMatchedDisplayTokens, liveMatchedIndices]);
+  // Compare only the completed prefix, never align a word to a later slot.
+  const wordFeedback = useMemo(() => {
+    const complete = /[\s.,!?;:]$/.test(draft);
+    const committed = draftNorm.display_tokens.filter((_token, i, all) => complete || i < all.length - 1);
+    const count = committed.reduce((n, token) => n + token.canonical_indices.length, 0);
+    const target = targetNorm.canonical_tokens;
+    const input = draftNorm.canonical_tokens;
+    let prefix = 0;
+    while (prefix < count && prefix < target.length && input[prefix]?.value === target[prefix].value) prefix++;
+    const matched = new Set(targetNorm.display_tokens.filter(t => t.canonical_indices.every(i => i < prefix)).map(t => t.index));
+    const wrong = prefix < count ? targetNorm.display_tokens.find(t => t.canonical_indices.includes(prefix))?.index : undefined;
+    return { matched, wrong, extra: count > target.length && prefix === target.length };
+  }, [draft, draftNorm, targetNorm]);
+  const liveMatchedIndices = wordFeedback.matched;
+  const matchedDisplayTokens = liveMatchedIndices;
 
   const isRetrying = retryingSegmentId === segment.id;
   const isCompleted = segment.completed || (result?.completed ?? false);
@@ -218,6 +191,7 @@ export const DictationBox: React.FC<DictationBoxProps> = ({
   const handleCheck = useCallback(async (_isAuto = false) => {
     if (!draft.trim() || isChecking) return;
 
+    textareaRef.current?.focus();
     setIsChecking(true);
     setCheckError(null);
     setHintMessage(null);
@@ -238,6 +212,7 @@ export const DictationBox: React.FC<DictationBoxProps> = ({
 
       // Clear stable request ID on successful response so next draft gets fresh ID
       currentSubmissionIdRef.current = null;
+      if (activeSegmentIdRef.current !== segment.id || (useStudyStore.getState().drafts[segment.id] ?? '') !== draft) return;
       setResult(segment.id, checkRes);
 
       if (checkRes.is_exact) {
@@ -270,9 +245,10 @@ export const DictationBox: React.FC<DictationBoxProps> = ({
   useEffect(() => {
     const allMatched =
       targetNorm.display_tokens.length > 0 &&
-      liveMatchedIndices.size === targetNorm.display_tokens.length;
+      liveMatchedIndices.size === targetNorm.display_tokens.length &&
+      draftNorm.canonical_tokens.length === targetNorm.canonical_tokens.length;
 
-    if (allMatched && !autoSubmittedRef.current && !isAnswerVisible) {
+    if (isActive && allMatched && !isChecking && !autoSubmittedRef.current && !isAnswerVisible) {
       autoSubmittedRef.current = true;
       handleCheck(true);
     }
@@ -330,16 +306,17 @@ export const DictationBox: React.FC<DictationBoxProps> = ({
     );
     if (!nextUnmatched) return;
 
-    const current = draft.trim();
-    const newDraft = current ? `${current} ${nextUnmatched.text}` : nextUnmatched.text;
-    setDraft(segment.id, newDraft);
-
     try {
       const activeSession = session || await ensureSession(segment.id);
-      if (activeSession) {
-        apiClient.getHint(activeSession.id, nextUnmatched.index).catch(() => {});
-      }
-    } catch {}
+      const hint = await apiClient.getHint(activeSession.id, nextUnmatched.index);
+      setSession(segment.id, { ...activeSession, hinted_display_indices: hint.hinted_display_indices });
+      if (activeSegmentIdRef.current !== segment.id || (useStudyStore.getState().drafts[segment.id] ?? '') !== draft) return;
+      const prefix = targetNorm.display_tokens.filter(t => t.index < nextUnmatched.index).map(t => t.text);
+      setDraft(segment.id, [...prefix, nextUnmatched.text].join(' ') + ' ');
+      setStaleDiff(segment.id, true);
+      autoSubmittedRef.current = false;
+      textareaRef.current?.focus();
+    } catch { return; }
 
     setHintMessage(`Pista: "${nextUnmatched.text}"`);
     setTimeout(() => setHintMessage(null), 2000);
@@ -404,15 +381,29 @@ export const DictationBox: React.FC<DictationBoxProps> = ({
     onClose: () => setShowHelpModal(false),
   });
 
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === 'Tab') {
-      const now = Date.now();
-      if (now - lastTabTimeRef.current < 350) {
-        e.preventDefault();
-        handleDoubleTabHint();
+  // The first Tab retains normal navigation; catch the second even after focus moves.
+  useEffect(() => {
+    const onTab = (event: KeyboardEvent) => {
+      if (!isActive || event.key !== 'Tab' || event.shiftKey || event.repeat) {
+        lastTabTimeRef.current = 0;
+        return;
       }
-      lastTabTimeRef.current = now;
-    } else if (e.key === 'Enter') {
+      const now = Date.now();
+      if (lastTabTimeRef.current && now - lastTabTimeRef.current < 350) {
+        event.preventDefault();
+        lastTabTimeRef.current = 0;
+        textareaRef.current?.focus();
+        void handleDoubleTabHint();
+      } else {
+        lastTabTimeRef.current = document.activeElement === textareaRef.current ? now : 0;
+      }
+    };
+    document.addEventListener('keydown', onTab, true);
+    return () => document.removeEventListener('keydown', onTab, true);
+  }, [isActive, handleDoubleTabHint]);
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === 'Enter') {
       if (e.nativeEvent.isComposing) return;
       if (e.shiftKey) return; // Shift+Enter allows newline
       e.preventDefault();
@@ -549,6 +540,8 @@ export const DictationBox: React.FC<DictationBoxProps> = ({
           return (
             <span
               key={token.index}
+              aria-label={wordFeedback.wrong === token.index ? `Word ${token.index + 1}: check this word` : undefined}
+              style={wordFeedback.wrong === token.index ? { borderColor: '#f87171', color: '#f87171' } : undefined}
               className="px-2.5 py-1 rounded text-xs font-mono text-slate-500 tracking-wider bg-surface/50 border border-border/40 select-none"
             >
               {placeholderDashes}
@@ -557,6 +550,9 @@ export const DictationBox: React.FC<DictationBoxProps> = ({
         })}
       </div>
 
+      {!isAnswerVisible && draft.trim() && <p role="status" className="text-sm text-text-secondary">
+        {wordFeedback.wrong !== undefined ? `Check word ${wordFeedback.wrong + 1}. Keep the sentence order.` : wordFeedback.extra ? 'There are extra words at the end.' : `${matchedDisplayTokens.size} / ${targetNorm.display_tokens.length} words correct in order`}
+      </p>}
       {/* Evaluation Feedback Panel */}
       {result && !isStale && (
         <div className="p-3.5 rounded-control bg-surface-raised border border-border text-xs space-y-2 animate-in fade-in duration-150">
@@ -588,6 +584,7 @@ export const DictationBox: React.FC<DictationBoxProps> = ({
         </div>
 
         <textarea
+          ref={textareaRef}
           id="dictation-input"
           aria-label="Type what you hear"
           value={draft}
@@ -596,6 +593,7 @@ export const DictationBox: React.FC<DictationBoxProps> = ({
               clearTimeout(advanceTimerRef.current);
               advanceTimerRef.current = null;
             }
+            autoSubmittedRef.current = false;
             currentSubmissionIdRef.current = null;
             setDraft(segment.id, e.target.value);
             setStaleDiff(segment.id, true);
@@ -613,7 +611,6 @@ export const DictationBox: React.FC<DictationBoxProps> = ({
             setSelectedText('');
           }}
           onKeyDown={handleKeyDown}
-          disabled={isChecking}
           placeholder="Listen to the audio and transcribe the sentence here..."
           aria-describedby="dictation-input-help"
           maxLength={2000}

@@ -21,7 +21,7 @@ def test_db(tmp_path):
 
     with Session(test_engine) as db:
         video = Video(
-            youtube_id="dict1234567",
+            source_key="dict1234567",
             title="Dictation Practice Test",
             channel="English Channel",
             duration_seconds=120.0,

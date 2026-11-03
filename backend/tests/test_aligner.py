@@ -149,3 +149,14 @@ def test_gonna_wanna_expansion():
     assert res2.is_exact is True
     assert res2.score == 100
     assert res2.distance == 0
+
+
+@pytest.mark.parametrize("word", ["passer-by", "passer\u2010by", "passer\u2011by", "mother-in-law"])
+def test_hyphenated_display_words(word):
+    import re
+    norm = normalize_text(word)
+    assert len(norm.display_tokens) == 1
+    assert len(norm.display_tokens[0].canonical_indices) == (3 if word == "mother-in-law" else 2)
+    assert align(word, re.sub(r"[-\u2010\u2011]", " ", word)).is_exact
+    assert not align("passer-by", "passer").is_exact
+    assert len(normalize_text("hello\u2014world").display_tokens) == 2

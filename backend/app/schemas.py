@@ -72,8 +72,8 @@ class SegmentDTO(BaseModel):
 
 class VideoSummaryDTO(BaseModel):
     id: int
-    youtube_id: str
-    source_type: Literal["youtube", "local"] = "youtube"
+    source_key: str
+    source_type: Literal["local", "unavailable"] = "local"
     title: str
     channel: Optional[str] = None
     duration_seconds: float
@@ -107,7 +107,7 @@ class JobErrorDTO(BaseModel):
 
 class JobDTO(BaseModel):
     id: str
-    kind: str = Field(description="ingest | shadowing")
+    kind: str = Field(description="local_ingest | shadowing")
     status: str = Field(description="queued | running | succeeded | failed")
     stage: Optional[str] = None
     progress: Optional[float] = Field(default=None, ge=0.0, le=1.0)
@@ -118,12 +118,6 @@ class JobDTO(BaseModel):
     finished_at: Optional[datetime] = None
 
     model_config = ConfigDict(from_attributes=True)
-
-class IngestRequestDTO(BaseModel):
-    url: str
-    force: bool = False
-    force_gpu_whisper: bool = False
-    client_request_id: Optional[str] = Field(default_factory=lambda: str(uuid.uuid4()))
 
 class IngestResponseDTO(BaseModel):
     job_id: Optional[str] = None
@@ -219,6 +213,7 @@ class ShadowingAttemptListDTO(BaseModel):
 TutorKeyVocabularyType = Literal["phrasal_verb", "idiom", "slang", "grammar", "word"]
 
 class TutorKeyVocabularyItem(BaseModel):
+    example: str = Field(min_length=1, max_length=300)
     term: str = Field(max_length=100)
     type: TutorKeyVocabularyType
     explanation: str = Field(max_length=600)
@@ -232,6 +227,7 @@ class TutorExampleItem(BaseModel):
     explanation: str = Field(max_length=600)
 
 class TutorExplanationContent(BaseModel):
+    spanish_translation: str = Field(min_length=1, max_length=1200)
     contextual_meaning: str = Field(max_length=1200)
     key_vocabulary: List[TutorKeyVocabularyItem] = Field(default_factory=list, max_length=8)
     connected_speech: List[TutorConnectedSpeechItem] = Field(default_factory=list, max_length=5)

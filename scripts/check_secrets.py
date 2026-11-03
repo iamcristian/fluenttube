@@ -27,7 +27,7 @@ def inspect(label, content):
     findings = []
     for name, pattern in PATTERNS.items():
         for match in pattern.finditer(content):
-            # Deliberate invalid URL fixture, not an actual login.
+            # Deliberate invalid URL fixture in historical tests, not an actual login.
             if name == "Credential in URL" and label.endswith("backend/tests/test_youtube_url.py") and match.group() == b"https://user:" + b"password@":
                 continue
             line = content[:match.start()].count(b"\n") + 1

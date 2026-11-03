@@ -22,7 +22,7 @@ describe('LibraryPage Component', () => {
     renderWithQueryClient(<LibraryPage onSelectVideo={handleSelectVideo} />);
 
     expect(await screen.findByText('Your study library is empty')).toBeInTheDocument();
-    expect(screen.getByText(/Paste any YouTube link with English subtitles/i)).toBeInTheDocument();
+    expect(screen.getByText(/Upload an MP4 or WebM file with English speech/i)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /import your first video/i })).toBeInTheDocument();
   });
 
@@ -30,7 +30,7 @@ describe('LibraryPage Component', () => {
     const mockVideos: VideoSummaryDTO[] = [
       {
         id: 1,
-        youtube_id: 'dQw4w9WgXcQ',
+        source_key: 'dQw4w9WgXcQ',
         title: 'Never Gonna Give You Up',
         channel: 'Rick Astley',
         duration_seconds: 212.0,
@@ -42,7 +42,7 @@ describe('LibraryPage Component', () => {
       },
       {
         id: 2,
-        youtube_id: 'jNQXAC9IVRw',
+        source_key: 'jNQXAC9IVRw',
         title: 'Me at the zoo',
         channel: 'jawed',
         duration_seconds: 19.0,
@@ -95,7 +95,7 @@ describe('LibraryPage Component', () => {
     fireEvent.click(topImportBtn);
 
     expect(await screen.findByRole('dialog')).toBeInTheDocument();
-    expect(screen.getByText('Import YouTube Video')).toBeInTheDocument();
+    expect(screen.getByText('Import a video file')).toBeInTheDocument();
   });
 
   it('recovers pending job from localStorage on mount and opens modal with progress', async () => {
@@ -108,7 +108,7 @@ describe('LibraryPage Component', () => {
 
     vi.spyOn(apiClient, 'getJob').mockResolvedValue({
       id: 'job-recover-123',
-      kind: 'ingest',
+      kind: 'local_ingest',
       status: 'running',
       stage: 'segmenting',
       progress: 0.7,
@@ -128,9 +128,9 @@ describe('LibraryPage Component', () => {
   });
 
   const libraryVideos: VideoSummaryDTO[] = [
-    { id: 11, youtube_id: 'abcdefghijk', title: 'Travel stories', channel: 'Everyday English', duration_seconds: 90, segment_count: 10, completed_count: 2, last_segment_id: 110, transcription_source: 'captions_manual', created_at: '2026-10-01' },
-    { id: 12, youtube_id: 'bcdefghijkl', title: 'A new beginning', channel: 'Learning Lab', duration_seconds: 30, segment_count: 5, completed_count: 0, last_segment_id: null, transcription_source: 'captions_manual', created_at: '2026-10-02' },
-    { id: 13, youtube_id: 'cdefghijklm', title: 'Finished lesson', channel: 'Learning Lab', duration_seconds: 45, segment_count: 4, completed_count: 4, last_segment_id: 130, transcription_source: 'captions_manual', created_at: '2026-10-03' },
+    { id: 11, source_key: 'abcdefghijk', title: 'Travel stories', channel: 'Everyday English', duration_seconds: 90, segment_count: 10, completed_count: 2, last_segment_id: 110, transcription_source: 'captions_manual', created_at: '2026-10-01' },
+    { id: 12, source_key: 'bcdefghijkl', title: 'A new beginning', channel: 'Learning Lab', duration_seconds: 30, segment_count: 5, completed_count: 0, last_segment_id: null, transcription_source: 'captions_manual', created_at: '2026-10-02' },
+    { id: 13, source_key: 'cdefghijklm', title: 'Finished lesson', channel: 'Learning Lab', duration_seconds: 45, segment_count: 4, completed_count: 4, last_segment_id: 130, transcription_source: 'captions_manual', created_at: '2026-10-03' },
   ];
 
   it('searches by channel without case sensitivity and clears a no-results state', async () => {
@@ -179,10 +179,10 @@ describe('LibraryPage Component', () => {
     expect(getVideos).toHaveBeenCalledWith(100, 1);
   });
 
-  it('shows a local source without requesting a YouTube thumbnail', async () => {
-    vi.spyOn(apiClient, 'getVideos').mockResolvedValue({ items: [{ ...libraryVideos[0], youtube_id: 'local:example', source_type: 'local', channel: 'Local video' }], total: 1 });
+  it('shows a local source without requesting a remote thumbnail', async () => {
+    vi.spyOn(apiClient, 'getVideos').mockResolvedValue({ items: [{ ...libraryVideos[0], source_key: 'local:example', source_type: 'local', channel: 'Local video' }], total: 1 });
     const { container } = renderWithQueryClient(<LibraryPage onSelectVideo={vi.fn()} />);
-    expect(await screen.findByText('Local video · no YouTube connection')).toBeInTheDocument();
+    expect(await screen.findAllByText('Local video')).toHaveLength(2);
     expect(container.querySelector('img')).toBeNull();
   });
 

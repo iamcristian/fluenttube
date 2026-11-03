@@ -1,4 +1,4 @@
-import { screen, fireEvent, act } from '@testing-library/react';
+import { screen, fireEvent, act, waitFor } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { renderWithQueryClient } from './testUtils';
 import { ShadowingStudio } from '../src/components/ShadowingStudio';
@@ -220,7 +220,7 @@ describe('ShadowingStudio Component & Recording Lifecycle', () => {
   });
 
   describe('Recording Lifecycle and Hardware Release', () => {
-    it('pauses YouTube player before recording begins and starts capture', async () => {
+    it('pauses video player before recording begins and starts capture', async () => {
       const handleBeforeRecord = vi.fn();
       renderWithQueryClient(
         <ShadowingStudio
@@ -234,7 +234,7 @@ describe('ShadowingStudio Component & Recording Lifecycle', () => {
         fireEvent.click(startBtn);
       });
 
-      // 1. YouTube playback paused
+      // 1. video playback paused
       expect(handleBeforeRecord).toHaveBeenCalledTimes(1);
 
       // 2. getUserMedia requested audio
@@ -420,9 +420,7 @@ describe('ShadowingStudio Component & Recording Lifecycle', () => {
           /Audio validated and converted to 16 kHz mono PCM\. Speech evaluation engine activates in T16\./i
         )
       ).toBeInTheDocument();
-      expect(screen.getByRole('button', { name: /Evaluate speech/i })).toHaveTextContent(
-        'Evaluated'
-      );
+      await waitFor(() => expect(screen.getByRole('button', { name: /Evaluate speech/i })).toHaveTextContent('Evaluated'));
     });
 
     it('displays error message when evaluateShadowing fails with api error', async () => {

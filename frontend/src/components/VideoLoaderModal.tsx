@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { X, Youtube, Loader2, AlertCircle, CheckCircle2, ArrowRight, ExternalLink, RotateCcw, Upload, FileVideo } from 'lucide-react';
-import { apiClient, ApiError } from '../api/client';
+import { X, Loader2, AlertCircle, CheckCircle2, ArrowRight, RotateCcw, FileVideo } from 'lucide-react';
+import { apiClient } from '../api/client';
 import { useJob } from '../hooks/useJob';
 import { useQueryClient } from '@tanstack/react-query';
 
@@ -13,9 +13,6 @@ export interface VideoLoaderModalProps {
 
 const STAGE_LABELS: Record<string, string> = {
   recovering: 'Restoring your saved video...',
-  metadata: 'Finding your video...',
-  captions: 'Downloading English subtitles...',
-  downloading_audio: 'Downloading video audio...',
   loading_model: 'Preparing speech recognition...',
   transcribing: 'Turning the audio into practice sentences...',
   segmenting: 'Segmenting practice sentences...',
@@ -24,21 +21,11 @@ const STAGE_LABELS: Record<string, string> = {
 };
 
 function importFailure(code: string, message: string) {
-  // Older saved jobs can contain the raw downloader message rather than a specific code.
-  const normalized = message.toLowerCase();
   if (code === 'JOB_INTERRUPTED') {
     return { title: 'Processing was interrupted', message: 'The local app restarted before processing finished. Your previous practice progress is still saved.' };
   }
-  if (code === 'YOUTUBE_COOLDOWN') {
-    return { title: 'Imports are taking a short break', message };
-  }
-  if (code === 'RATE_LIMITED' || normalized.includes('429') || normalized.includes('too many requests')) {
-    return { title: 'YouTube needs a little time', message: 'YouTube is temporarily limiting imports from this connection. Wait a while before trying again. Repeated retries can prolong the block.' };
-  }
-  if (code === 'YOUTUBE_AUTH_REQUIRED' || normalized.includes('not a bot') || normalized.includes('sign in to confirm')) {
-    return { title: 'YouTube is asking for verification', message: 'Your link is valid. YouTube is blocking the automatic import until a verification is completed. You can check the video on YouTube, wait and try again later, or choose another video.' };
-  }
-  return { title: 'Import Failed', message: code === 'SUBTITLES_NOT_FOUND' ? 'No English subtitles were available, and automatic transcription could not finish. Try a different video.' : message || 'The video could not be imported. Please try again later.' };
+
+  return { title: 'Import Failed', message: message || 'The video could not be imported. Please try again.' };
 }
 
 export const VideoLoaderModal: React.FC<VideoLoaderModalProps> = ({
@@ -48,10 +35,7 @@ export const VideoLoaderModal: React.FC<VideoLoaderModalProps> = ({
   initialJobId = null,
 }) => {
   const queryClient = useQueryClient();
-  const [url, setUrl] = useState('');
-  const [source, setSource] = useState<'youtube' | 'local'>('youtube');
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [forceGpuWhisper, setForceGpuWhisper] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [activeJobId, setActiveJobId] = useState<string | null>(initialJobId);
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -92,21 +76,19 @@ export const VideoLoaderModal: React.FC<VideoLoaderModalProps> = ({
     },
     onFailed: (_error, failedJob) => {
       if (failedJob.kind === 'local_ingest' && failedJob.error?.details?.can_resume !== false) localStorage.setItem('fluenttube_pending_job_id', failedJob.id);
-      else localStorage.removeItem('fluenttube_pending_job_id');
+      else {
+        localStorage.removeItem('fluenttube_pending_job_id');
+        if (failedJob.kind !== 'local_ingest') setActiveJobId(null);
+      }
     },
   });
 
   const handleClose = () => {
-    setUrl('');
-    setForceGpuWhisper(false);
     setSubmitError(null);
     setIsSubmitting(false);
     setSelectedFile(null);
     onClose();
   };
-  useEffect(() => {
-    if (job?.kind === 'local_ingest') setSource('local');
-  }, [job?.kind]);
   closeRef.current = handleClose;
 
   useEffect(() => {
@@ -137,81 +119,10 @@ export const VideoLoaderModal: React.FC<VideoLoaderModalProps> = ({
     };
   }, [isOpen]);
 
-  const startImport = async (videoUrl: string) => {
-    if (isSubmitting) return; // Guard against double-click
-
-    const trimmedUrl = videoUrl.trim();
-    if (!trimmedUrl) {
-      setSubmitError('Please enter a YouTube video URL.');
-      return;
-    }
-    try {
-      const parsed = new URL(trimmedUrl);
-      if (!['http:', 'https:'].includes(parsed.protocol) || !/^(www\.|m\.|music\.)?(youtube\.com|youtu\.be)$/.test(parsed.hostname)) {
-        setSubmitError('Use a YouTube video link, such as youtube.com/watch?v=… or youtu.be/…');
-        return;
-      }
-    } catch {
-      setSubmitError('Enter a complete YouTube link, starting with https://');
-      return;
-    }
-
-    setIsSubmitting(true);
-    setSubmitError(null);
-
-    try {
-      const response = await apiClient.ingestVideo({
-        url: trimmedUrl,
-        force: false,
-        force_gpu_whisper: forceGpuWhisper,
-      });
-
-      // 1. Cache hit (200 OK)
-      if (response.cached && response.video_id) {
-        queryClient.invalidateQueries({ queryKey: ['videos'] });
-        if (isModalOpenRef.current) {
-          onSuccess(response.video_id);
-          handleClose();
-        }
-        return;
-      }
-
-      // 2. Background job queued (202 Accepted)
-      if (response.job_id) {
-        localStorage.setItem('fluenttube_pending_job_id', response.job_id);
-        setActiveJobId(response.job_id);
-      }
-    } catch (err: unknown) {
-      if (err instanceof ApiError) {
-        if (err.code === 'INGEST_IN_PROGRESS' && typeof err.details.existing_job_id === 'string') {
-          setActiveJobId(err.details.existing_job_id);
-          localStorage.setItem('fluenttube_pending_job_id', err.details.existing_job_id);
-          return;
-        }
-        if (err.code === 'SUBTITLES_NOT_FOUND') {
-          setSubmitError('English subtitles not found and local transcription was unavailable.');
-        } else if (err.code === 'VIDEO_TOO_LONG') {
-          setSubmitError(err.message || 'This video exceeds the 60-minute limit.');
-        } else if (err.code === 'LIVE_STREAM_UNSUPPORTED') {
-          setSubmitError('Active YouTube live streams are not supported.');
-        } else {
-          setSubmitError(err.message || 'Failed to import video.');
-        }
-      } else if (err instanceof Error) {
-        setSubmitError(err.message);
-      } else {
-        setSubmitError('An unexpected error occurred while importing.');
-      }
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
   const handleReset = () => {
     localStorage.removeItem('fluenttube_pending_job_id');
     setActiveJobId(null);
     setSubmitError(null);
-    setUrl('');
   };
 
   const startLocalImport = async () => {
@@ -236,8 +147,7 @@ export const VideoLoaderModal: React.FC<VideoLoaderModalProps> = ({
 
   const handleSubmit = (event: React.FormEvent) => {
     event.preventDefault();
-    if (source === 'local') void startLocalImport();
-    else void startImport(url);
+    void startLocalImport();
   };
   const resumeLocalImport = async () => {
     if (!activeJobId || isSubmitting) return;
@@ -254,11 +164,6 @@ export const VideoLoaderModal: React.FC<VideoLoaderModalProps> = ({
   const failed = job?.status === 'failed';
   const canResumeLocal = failed && job?.kind === 'local_ingest' && job?.error?.details?.can_resume !== false;
   const failure = importFailure(job?.error?.code ?? '', job?.error?.message ?? '');
-  const publicId = job?.error?.details?.youtube_id ?? job?.error?.message.match(/\[youtube\]\s+([A-Za-z0-9_-]{11})(?=:|\s)/)?.[1];
-  const sourceUrl = typeof publicId === 'string' && /^[A-Za-z0-9_-]{11}$/.test(publicId)
-    ? `https://www.youtube.com/watch?v=${publicId}` : null;
-  const retryUrl = url.trim() || sourceUrl;
-  const isYouTubeBlocked = ['YOUTUBE_AUTH_REQUIRED', 'YOUTUBE_BLOCKED', 'RATE_LIMITED', 'YOUTUBE_COOLDOWN'].includes(job?.error?.code ?? '') || /not a bot|sign in to confirm|too many requests|429/i.test(job?.error?.message ?? '');
 
   if (!isOpen) return null;
 
@@ -277,10 +182,10 @@ export const VideoLoaderModal: React.FC<VideoLoaderModalProps> = ({
         <div className="flex items-center justify-between pb-4 border-b border-slate-800">
           <div className="flex items-center space-x-2.5">
             <div className="p-2 rounded-lg bg-red-600/20 text-red-400">
-              {source === 'local' ? <FileVideo className="w-5 h-5" /> : <Youtube className="w-5 h-5" />}
+              <FileVideo className="w-5 h-5" />
             </div>
             <h2 id="modal-title" className="text-lg font-semibold text-white">
-              {failed ? 'Let’s get you back to practicing' : activeJobId ? 'Processing Video' : source === 'local' ? 'Import a video file' : 'Import YouTube Video'}
+              {failed ? 'Let’s get you back to practicing' : activeJobId ? 'Processing Video' : 'Import a video file'}
             </h2>
           </div>
           <button
@@ -297,52 +202,7 @@ export const VideoLoaderModal: React.FC<VideoLoaderModalProps> = ({
         <div className="py-5">
           {!activeJobId ? (
             <form onSubmit={handleSubmit} noValidate className="space-y-4">
-              <div role="group" aria-label="Import source" className="grid grid-cols-2 gap-2"><button type="button" disabled={isSubmitting} aria-pressed={source === 'youtube'} className={source === 'youtube' ? 'primary-button' : 'secondary-button'} onClick={() => { setSource('youtube'); setSubmitError(null); }}><Youtube size={16} />YouTube link</button><button type="button" disabled={isSubmitting} aria-pressed={source === 'local'} className={source === 'local' ? 'primary-button' : 'secondary-button'} onClick={() => { setSource('local'); setSubmitError(null); }}><Upload size={16} />Video file</button></div>
-              <p className="text-sm text-text-secondary leading-relaxed">{source === 'local' ? 'Use a video already on your computer. It is copied to this local app and transcribed on your computer, with no requests to YouTube.' : 'Choose a video you actually want to watch. We’ll turn it into short listening and speaking exercises.'}</p>
-              {source === 'local' && <div className="rounded-xl border border-dashed border-accent/40 bg-accent/5 p-5 space-y-3"><label htmlFor="local-video-file" className="block font-semibold text-sm">Choose a video file</label><input id="local-video-file" type="file" accept=".mp4,.webm,video/mp4,video/webm" disabled={isSubmitting} onChange={event => { setSelectedFile(event.target.files?.[0] ?? null); setSubmitError(null); }} className="block w-full text-sm text-text-secondary file:mr-3 file:rounded-lg file:border-0 file:bg-surface-raised file:px-3 file:py-2 file:text-white" /><p className="text-xs text-text-secondary">MP4 (H.264) or WebM · Up to 250 MB and 60 minutes · English speech</p>{selectedFile && <p className="text-sm text-accent break-words">{selectedFile.name} · {(selectedFile.size / 1024 / 1024).toFixed(1)} MB</p>}<p className="text-xs text-text-secondary">Speech recognition uses a local model. The first run may need to download the model; your video is not sent to an AI provider.</p></div>}
-              {source === 'youtube' && <div>
-                <label htmlFor="youtube-url" className="block text-xs font-medium text-slate-300 mb-1.5">
-                  YouTube Video URL
-                </label>
-                <div className="relative">
-                  <input
-                    ref={inputRef}
-                    id="youtube-url"
-                    type="url"
-                    inputMode="url"
-                    aria-invalid={Boolean(submitError)}
-                    aria-describedby="import-url-help"
-                    value={url}
-                    onChange={(e) => {
-                      setUrl(e.target.value);
-                      if (submitError) setSubmitError(null);
-                    }}
-                    placeholder="https://www.youtube.com/watch?v=..."
-                    disabled={isSubmitting}
-                    className="w-full px-4 py-2.5 bg-[#0B0F17] border border-slate-700 rounded-xl text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
-                  />
-                </div>
-                <p id="import-url-help" className="mt-1.5 text-xs text-slate-400">
-                  Paste any YouTube URL up to 60 minutes with English subtitles (manual or automatic).
-                </p>
-                <details className="pt-3 text-xs text-text-secondary">
-                  <summary className="cursor-pointer py-2">Advanced import options</summary>
-                <div className="pt-2">
-                  <label className="flex items-center space-x-2.5 cursor-pointer text-xs text-slate-300 hover:text-white select-none">
-                    <input
-                      type="checkbox"
-                      id="force-local-asr-checkbox"
-                      checked={forceGpuWhisper}
-                      onChange={(e) => setForceGpuWhisper(e.target.checked)}
-                      disabled={isSubmitting}
-                      className="w-4 h-4 rounded bg-[#0B0F17] border-slate-700 text-blue-600 focus:ring-blue-500 focus:ring-offset-slate-900 focus:ring-offset-1"
-                    />
-                    <span>Use local transcription for this new video</span>
-                  </label>
-                </div>
-                </details>
-              </div>}
-
+              <div className="rounded-xl border border-dashed border-accent/40 bg-accent/5 p-5 space-y-3"><label htmlFor="local-video-file" className="block font-semibold text-sm">Choose a video file</label><input ref={inputRef} id="local-video-file" type="file" accept=".mp4,.webm,video/mp4,video/webm" disabled={isSubmitting} onChange={event => { setSelectedFile(event.target.files?.[0] ?? null); setSubmitError(null); }} className="block w-full text-sm text-text-secondary file:mr-3 file:rounded-lg file:border-0 file:bg-surface-raised file:px-3 file:py-2 file:text-white" /><p className="text-xs text-text-secondary">MP4 (H.264) or WebM · Up to 250 MB and 60 minutes · English speech</p>{selectedFile && <p className="text-sm text-accent break-words">{selectedFile.name} · {(selectedFile.size / 1024 / 1024).toFixed(1)} MB</p>}<p className="text-xs text-text-secondary">Speech recognition uses a local model. The first run may need to download the model; your video is not sent to an AI provider.</p></div>
               {submitError && (
                 <div role="alert" className="flex items-start space-x-2.5 p-3 rounded-xl bg-red-950/40 border border-red-800/50 text-xs text-red-300">
                   <AlertCircle className="w-4 h-4 text-red-400 mt-0.5 shrink-0" />
@@ -368,11 +228,11 @@ export const VideoLoaderModal: React.FC<VideoLoaderModalProps> = ({
                   {isSubmitting ? (
                     <>
                       <Loader2 className="w-4 h-4 animate-spin" />
-                      <span>{source === 'local' ? 'Copying your video…' : 'Validating...'}</span>
+                      <span>Copying your video…</span>
                     </>
                   ) : (
                     <>
-                      <span>{source === 'local' ? 'Import file' : 'Import Video'}</span>
+                      <span>Import file</span>
                       <ArrowRight className="w-4 h-4" />
                     </>
                   )}
@@ -435,12 +295,7 @@ export const VideoLoaderModal: React.FC<VideoLoaderModalProps> = ({
                   <p className="pl-6 text-xs">Your library and previous progress are safe.</p>
                   <div className="flex flex-wrap gap-2 pt-2">
                     {canResumeLocal && <button className="primary-button" disabled={isSubmitting} onClick={() => { void resumeLocalImport(); }}><RotateCcw size={15} />{isSubmitting ? 'Continuing…' : 'Continue processing'}</button>}
-                    {sourceUrl && <a href={sourceUrl} target="_blank" rel="noopener noreferrer" className="secondary-button"><ExternalLink size={15} />Open on YouTube</a>}
-                    {retryUrl && !isYouTubeBlocked && <button disabled={isSubmitting} onClick={() => { void startImport(retryUrl); }} className="secondary-button"><RotateCcw size={15} />{isSubmitting ? 'Retrying…' : 'Retry this video'}</button>}
                   </div>
-                  {isYouTubeBlocked && <p className="text-xs leading-relaxed">No automatic retries. After a YouTube block, new imports pause for 15 minutes to avoid repeated requests. You can keep practicing videos already in your library.</p>}
-                  {isYouTubeBlocked && <button className="primary-button w-full" onClick={() => { handleReset(); setSource('local'); }}><Upload size={16} />Use a video file instead</button>}
-                  {(job.error?.code === 'YOUTUBE_AUTH_REQUIRED' || failure.title.includes('verification')) && <details className="text-xs leading-relaxed"><summary className="cursor-pointer py-2">Why doesn’t signing in fix it automatically?</summary><p>The app imports videos separately from your browser. It never reads your browser session automatically. Optional local session setup is explained in Settings.</p><a href="#/settings" onClick={handleClose} className="inline-block text-accent py-2 underline">Open Settings</a></details>}
                   {submitError && <p className="text-danger">{submitError}</p>}
                 </div>
               )}
@@ -449,7 +304,7 @@ export const VideoLoaderModal: React.FC<VideoLoaderModalProps> = ({
               {job?.status === 'succeeded' && (
                 <div className="flex items-center space-x-2.5 p-3 rounded-xl bg-emerald-950/40 border border-emerald-800/50 text-xs text-emerald-300">
                   <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-                  <span>Subtitles processed and segments saved! Loading study view...</span>
+                  <span>Transcription and practice sentences saved! Loading study view...</span>
                 </div>
               )}
 
@@ -460,10 +315,10 @@ export const VideoLoaderModal: React.FC<VideoLoaderModalProps> = ({
                 {job?.status === 'failed' ? (
                   <button
                     type="button"
-                    onClick={isYouTubeBlocked ? handleClose : handleReset}
+                    onClick={handleReset}
                     className="px-4 py-2 text-xs font-semibold text-white bg-slate-700 hover:bg-slate-600 rounded-xl transition"
                   >
-                    {isYouTubeBlocked ? 'Back to library' : 'Try Another Video'}
+                    Try Another Video
                   </button>
                 ) : (
                   <button

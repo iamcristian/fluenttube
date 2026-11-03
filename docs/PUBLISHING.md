@@ -46,4 +46,4 @@ No repository is created and no code is uploaded by these documentation changes.
 
 ## Repository automation
 
-The GitHub workflow checks common credential formats (including available Git history), runs frontend tests, and builds the frontend. Backend tests are run locally with `npm run test:backend`; live YouTube tests are disabled by default.
+The GitHub workflow checks common credential formats (including available Git history), runs frontend tests, and builds the frontend. Backend tests are run locally with `npm run test:backend`.

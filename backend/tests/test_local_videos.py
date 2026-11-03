@@ -44,13 +44,10 @@ def local_app(tmp_path, monkeypatch):
     job_runner.engine = original_engine
 
 
-def test_local_video_import_playback_and_library_work_during_youtube_cooldown(local_app, clip):
+def test_local_video_import_playback_and_library(local_app, clip):
     client, engine, _ = local_app
-    with Session(engine) as session:
-        session.add(Job(client_request_id="blocked-youtube", request_hash="test", kind="ingest", status="failed", error_code="YOUTUBE_AUTH_REQUIRED", finished_at=utc_now()))
-        session.commit()
     words = [{"word": "Hello", "start": 0.1, "end": 0.5, "probability": 1}, {"word": "world.", "start": 0.6, "end": 1.5, "probability": 1}]
-    with patch("backend.app.services.local_video.whisper_engine.load_model"), patch("backend.app.services.local_video.whisper_engine.transcribe", return_value={"text": "Hello world.", "words": words, "segments": [{"start": 0.1, "end": 1.5, "text": "Hello world.", "words": words}]}), patch("yt_dlp.YoutubeDL", side_effect=AssertionError("Local import must never contact YouTube")) as youtube:
+    with patch("backend.app.services.local_video.whisper_engine.load_model"), patch("backend.app.services.local_video.whisper_engine.transcribe", return_value={"text": "Hello world.", "words": words, "segments": [{"start": 0.1, "end": 1.5, "text": "Hello world.", "words": words}]}):
         response = client.post("/api/videos/upload", files={"video_file": ("my practice.mp4", clip, "video/mp4")})
         assert response.status_code == 202
         job_id = response.json()["job_id"]
@@ -87,7 +84,6 @@ def test_local_video_import_playback_and_library_work_during_youtube_cooldown(lo
             tail = client.get(f"/api/videos/{video_id}/media", headers={"Range": "bytes=-32"})
         assert tail.status_code == 206
         assert tail.content == prepared.read_bytes()[-32:]
-        youtube.assert_not_called()
 
 
 @pytest.mark.parametrize("name,content,status", [("notes.txt", b"hello", 415), ("empty.mp4", b"", 422), ("invalid.mp4", b"not video", 415)])
@@ -245,7 +241,7 @@ def test_saved_import_can_be_found_and_continued_without_upload(local_app, clip)
     assert discovered.json()[0]["error"]["details"]["can_resume"] is True
     assert "file_relative_path" not in discovered.text
     result = {"words": [{"word": "Welcome.", "start": 0.1, "end": 0.9}]}
-    with patch("backend.app.services.local_video.whisper_engine.load_model"), patch("backend.app.services.local_video.whisper_engine.transcribe", return_value=result), patch("yt_dlp.YoutubeDL") as youtube:
+    with patch("backend.app.services.local_video.whisper_engine.load_model"), patch("backend.app.services.local_video.whisper_engine.transcribe", return_value=result):
         resumed = client.post(f"/api/jobs/{job_id}/resume")
         assert resumed.status_code == 200
         assert resumed.json()["id"] == job_id
@@ -255,5 +251,4 @@ def test_saved_import_can_be_found_and_continued_without_upload(local_app, clip)
                 break
             time.sleep(0.05)
         assert status["status"] == "succeeded", status
-        youtube.assert_not_called()
     assert client.get("/api/jobs/recoverable/local").json() == []

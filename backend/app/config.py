@@ -21,8 +21,6 @@ class Settings(BaseSettings):
     JOB_QUEUE_MAX_WAITING: int = 8
     EXPORT_TTL_HOURS: int = 24
     LOG_LEVEL: str = "INFO"
-    # Optional, explicitly configured local session. Never read browser cookies automatically.
-    YOUTUBE_COOKIES_FILE: Optional[str] = None
 
     # Speech recognition (Section 10.3)
     SPEECH_DEVICE: str = "auto"

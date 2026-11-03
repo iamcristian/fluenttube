@@ -1,10 +1,8 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { PlayerAdapter, PlayerError, PlayerState } from './types';
-import { YouTubePlayerAdapter } from './YouTubePlayerAdapter';
-import { loadYouTubeIframeApi } from './youtubeApiLoader';
 import { LocalVideoAdapter } from './LocalVideoAdapter';
 
-export interface UseYouTubePlayerOptions {
+export interface UseVideoPlayerOptions {
   containerRef: React.RefObject<HTMLDivElement>;
   videoId: string;
   mediaUrl?: string;
@@ -14,7 +12,7 @@ export interface UseYouTubePlayerOptions {
   customAdapter?: PlayerAdapter; // For testing
 }
 
-export interface UseYouTubePlayerReturn {
+export interface UseVideoPlayerReturn {
   adapter: PlayerAdapter | null;
   isReady: boolean;
   isLoading: boolean;
@@ -28,7 +26,7 @@ export interface UseYouTubePlayerReturn {
   setPlaybackRate: (rate: number) => void;
 }
 
-export function useYouTubePlayer({
+export function useVideoPlayer({
   containerRef,
   videoId,
   mediaUrl,
@@ -36,7 +34,7 @@ export function useYouTubePlayer({
   onError,
   onStateChange,
   customAdapter,
-}: UseYouTubePlayerOptions): UseYouTubePlayerReturn {
+}: UseVideoPlayerOptions): UseVideoPlayerReturn {
   const [adapter, setAdapter] = useState<PlayerAdapter | null>(() => customAdapter ?? null);
   const [isReady, setIsReady] = useState(() => !!customAdapter);
   const [isLoading, setIsLoading] = useState(() => !customAdapter);
@@ -49,8 +47,6 @@ export function useYouTubePlayer({
     customAdapter ? customAdapter.getAvailablePlaybackRates() : [1.0]
   );
 
-  // Track previous videoId to handle video changes
-  const prevVideoIdRef = useRef<string>(videoId);
   const adapterRef = useRef<PlayerAdapter | null>(customAdapter ?? null);
   adapterRef.current = customAdapter ?? adapter;
 
@@ -87,16 +83,22 @@ export function useYouTubePlayer({
     }
   }, [customAdapter, onReady, onStateChange, onError]);
 
-  // Main YouTube Player initialization under React StrictMode
+  // Mount native playback and release it on cleanup.
   useEffect(() => {
     if (customAdapter) return;
-    if (!containerRef.current || !videoId) return;
+    if (!containerRef.current) return;
+    if (!mediaUrl) {
+      setIsLoading(false);
+      setIsReady(false);
+      setError({ code: 'MEDIA_UNAVAILABLE', message: 'The original media is unavailable. Import a video file to practice with local playback.', videoUrl: '' });
+      return;
+    }
 
     let isCancelled = false;
     setIsLoading(true);
     setError(null);
 
-    const adapterInstance = mediaUrl ? new LocalVideoAdapter(mediaUrl) : new YouTubePlayerAdapter(videoId);
+    const adapterInstance = new LocalVideoAdapter(mediaUrl);
 
     // Wire up event listeners
     const unsubs = [
@@ -125,63 +127,8 @@ export function useYouTubePlayer({
       }),
     ];
 
-    // Load API and instantiate
-    if (adapterInstance instanceof LocalVideoAdapter) {
-      adapterInstance.mount(containerRef.current);
-      setAdapter(adapterInstance);
-    } else loadYouTubeIframeApi()
-      .then(() => {
-        if (isCancelled || !containerRef.current || !window.YT) {
-          return;
-        }
-
-        // Create DOM element for iframe mount inside container
-        const targetElement = document.createElement('div');
-        containerRef.current.innerHTML = '';
-        containerRef.current.appendChild(targetElement);
-
-        const nativePlayer = new window.YT.Player(targetElement, {
-          videoId,
-          width: '100%',
-          height: '100%',
-          playerVars: {
-            autoplay: 0,
-            controls: 1,
-            origin: window.location.origin,
-            rel: 0,
-            modestbranding: 1,
-            playsinline: 1,
-            fs: 1,
-          },
-          events: {
-            onReady: () => {
-              adapterInstance.emitReady();
-            },
-            onStateChange: (event: { data: number }) => {
-              adapterInstance.emitStateChange(event.data);
-            },
-            onPlaybackRateChange: (event: { data: number }) => {
-              adapterInstance.emitPlaybackRateChange(event.data);
-            },
-            onError: (event: { data: number }) => {
-              adapterInstance.emitError(event.data);
-            },
-          },
-        });
-
-        adapterInstance.setNativePlayer(nativePlayer);
-        setAdapter(adapterInstance);
-      })
-      .catch((err) => {
-        if (isCancelled) return;
-        setIsLoading(false);
-        setError({
-          code: 'API_LOAD_FAILED',
-          message: err instanceof Error ? err.message : 'Failed to load YouTube API.',
-          isEmbedRestricted: false,
-          videoUrl: `https://www.youtube.com/watch?v=${videoId}`,
-        });
-      });
+    adapterInstance.mount(containerRef.current);
+    setAdapter(adapterInstance);
 
     return () => {
       isCancelled = true;
@@ -191,16 +138,6 @@ export function useYouTubePlayer({
       setIsReady(false);
     };
   }, [videoId, mediaUrl, containerRef, customAdapter, onReady, onStateChange, onError]);
-
-  // Handle switching videoId on an existing ready player instance
-  useEffect(() => {
-    if (adapterRef.current && prevVideoIdRef.current !== videoId) {
-      prevVideoIdRef.current = videoId;
-      setError(null);
-      // cue video without autoplay
-      adapterRef.current.cueVideoById(videoId);
-    }
-  }, [videoId]);
 
   const play = useCallback(() => {
     if (adapterRef.current) {

@@ -30,7 +30,7 @@ describe('App Component & Routing', () => {
     const mockVideos: VideoSummaryDTO[] = [
       {
         id: 10,
-        youtube_id: 'abc12345678',
+        source_key: 'abc12345678',
         title: 'Learn English with News',
         channel: 'English Channel',
         duration_seconds: 120.0,
@@ -95,7 +95,7 @@ describe('App Component & Routing', () => {
 
     const mockDetail: VideoDetailDTO = {
       id: 42,
-      youtube_id: 'xyz12345678',
+      source_key: 'xyz12345678',
       title: 'Direct Route Video',
       channel: 'Channel',
       duration_seconds: 60.0,

@@ -1,5 +1,5 @@
 export type SpeechState = 'unloaded' | 'loading' | 'ready' | 'unavailable';
-export type JobKind = 'ingest' | 'local_ingest' | 'shadowing';
+export type JobKind = 'local_ingest' | 'shadowing';
 export type JobStatus = 'queued' | 'running' | 'succeeded' | 'failed';
 
 export interface SpeechHealthDTO {
@@ -54,8 +54,8 @@ export interface SegmentDTO {
 
 export interface VideoSummaryDTO {
   id: number;
-  youtube_id: string;
-  source_type?: 'youtube' | 'local';
+  source_key: string;
+  source_type?: 'local' | 'unavailable';
   title: string;
   channel?: string | null;
   duration_seconds: number;
@@ -88,13 +88,6 @@ export interface JobDTO {
   created_at: string;
   started_at?: string | null;
   finished_at?: string | null;
-}
-
-export interface IngestRequestDTO {
-  url: string;
-  force?: boolean;
-  force_gpu_whisper?: boolean;
-  client_request_id?: string;
 }
 
 export interface IngestResponseDTO {
@@ -231,6 +224,7 @@ export interface ShadowingAttemptDTO {
 export type TutorKeyVocabularyType = 'phrasal_verb' | 'idiom' | 'slang' | 'grammar' | 'word';
 
 export interface TutorKeyVocabularyItem {
+  example: string;
   term: string;
   type: TutorKeyVocabularyType;
   explanation: string;
@@ -247,6 +241,7 @@ export interface TutorExampleItem {
 }
 
 export interface TutorExplanationDTO {
+  spanish_translation: string;
   segment_id: number;
   language: string;
   contextual_meaning: string;
