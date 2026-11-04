@@ -5,8 +5,6 @@ import {
   Sparkles,
   Loader2,
   AlertCircle,
-  Cpu,
-  CheckCircle2,
   RotateCcw,
 } from 'lucide-react';
 import { apiClient } from '../api/client';
@@ -26,6 +24,18 @@ interface BritishInspectorProps {
   isLoadingTutor: boolean;
   tutorError?: string | null;
   onRequestTutor: () => void;
+}
+
+function MeaningList({ senses }: { senses: NonNullable<DictionaryEntryDTO['senses']> }) {
+  return <>{senses.map((sense, i) => <div key={i} className="space-y-1.5 border-t border-border/40 pt-2">
+    <p className="text-xs font-semibold text-accent">{sense.part_of_speech}</p>
+    <p className="text-xs text-text-primary leading-relaxed">{sense.meaning}</p>
+    {sense.examples.length > 0 && <div className="space-y-1"><h5 className="text-xs font-semibold">Examples</h5>{sense.examples.map(example => <p key={example} className="text-xs italic">“{example}”</p>)}</div>}
+  </div>)}</>;
+}
+
+function grammaticalCategory(value: string) {
+  return value.toLowerCase().match(/\b(adjective|adverb|preposition|article|determiner|pronoun|conjunction|noun|verb)\b/)?.[1] ?? value.toLowerCase();
 }
 
 export const BritishInspector: React.FC<BritishInspectorProps> = ({
@@ -222,6 +232,10 @@ export const BritishInspector: React.FC<BritishInspectorProps> = ({
 
   const isLoading = isLoadingDict;
   const currentTerm = selectedWord;
+  const senses = dictEntry?.senses?.length ? dictEntry.senses : dictEntry?.definition_en ? [{ part_of_speech: dictEntry.part_of_speech || 'Word', meaning: dictEntry.definition_en, examples: dictEntry.example_en ? [dictEntry.example_en] : [], lemma: dictEntry.word }] : [];
+  const category = grammaticalCategory(vocabResult?.part_of_speech || senses[0]?.part_of_speech || '');
+  const primarySenses = senses.filter(sense => grammaticalCategory(sense.part_of_speech) === category);
+  const otherSenses = senses.filter(sense => grammaticalCategory(sense.part_of_speech) !== category);
 
   return (
     <div className="h-full flex flex-col bg-surface border-l border-border select-none">
@@ -265,10 +279,10 @@ export const BritishInspector: React.FC<BritishInspectorProps> = ({
             ) : selectedWord ? (
               <div className="space-y-4 animate-in fade-in duration-150">
                 {/* Word Banner with Audio and Provider Tag */}
-                <div className="p-3.5 rounded-xl bg-surface-raised border border-border">
+                <div className="p-3 rounded-xl bg-surface-raised border border-border">
                   <div className="flex items-start justify-between gap-2">
                     <div>
-                      <h3 className="text-lg font-bold text-white tracking-wide break-words">
+                      <h3 className="text-base font-bold text-white tracking-wide break-words">
                         {currentTerm}
                       </h3>
                       <div className="flex items-center gap-2 mt-1 flex-wrap">
@@ -285,26 +299,13 @@ export const BritishInspector: React.FC<BritishInspectorProps> = ({
                             {vocabResult?.part_of_speech || dictEntry?.part_of_speech}
                           </span>
                         )}
-                        {vocabResult?.cached && (
-                          <span className="text-[10px] text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded flex items-center gap-1">
-                            <CheckCircle2 className="w-3 h-3" /> cached
-                          </span>
-                        )}
                       </div>
                       {dictEntry && !dictEntry.phonetic_uk && !dictEntry.ipa_options?.length && (
                         <p className="text-xs text-text-muted mt-1">British IPA unavailable for this word.</p>
                       )}
                       {openWordAtlas && dictEntry && (dictEntry.phonetic_uk ? [dictEntry.phonetic_uk] : dictEntry.ipa_options || []).map(ipa =>
                         <button key={ipa} className="quiet-button" onClick={() => openWordAtlas({word: currentTerm || selectedWord, ipa})}>Practicar los sonidos de {ipa}</button>)}
-                      {(dictEntry?.phonetic_uk || Boolean(dictEntry?.ipa_options?.length)) && (
-                        <p className="text-xs text-text-muted mt-1">
-                          {dictEntry?.ipa_quality === 'editorial_pending_review' ? 'Editorial transcription · review pending' : 'Pronunciation source'}
-                          {' · '}{dictEntry?.ipa_source || 'Unverified source'}
-                        </p>
-                      )}
-                      {dictEntry?.ipa_notes?.map((note) => (
-                        <p key={note} className="text-xs text-text-muted mt-1">{note}</p>
-                      ))}
+
                     </div>
                     <button
                       type="button"
@@ -330,16 +331,18 @@ export const BritishInspector: React.FC<BritishInspectorProps> = ({
                     </div>
                   )}
                   {isLoadingVocab && <p role="status" className="text-xs text-text-muted mt-2">Loading contextual explanation…</p>}
-                  {vocabResult?.provider && (
-                    <div className="mt-2.5 pt-2 border-t border-border/40 flex items-center justify-between text-[10px] text-text-muted">
-                      <span className="flex items-center gap-1 text-slate-400">
-                        <Cpu className="w-3 h-3 text-accent" />
-                        Provider: <strong className="text-slate-300 font-mono">{vocabResult.provider} ({vocabResult.model})</strong>
-                      </span>
-                      <span>AI explanation</span>
-                    </div>
-                  )}
+
                 </div>
+
+                {/* Dictionary meanings remain available independently of the AI tutor. */}
+                {dictEntry && (
+                  <section className="p-3 rounded-xl bg-background/50 border border-border/80 space-y-3" aria-label="Local dictionary meanings">
+                    <h4 className="text-xs font-bold uppercase tracking-wider text-accent">Meaning &amp; Part of speech</h4>
+                    <MeaningList senses={primarySenses} />
+                    {!primarySenses.length && <p className="text-xs text-text-muted">No local definition for this use yet. See the contextual explanation below.</p>}
+                    {otherSenses.length > 0 && <details className="text-xs text-text-secondary"><summary className="cursor-pointer py-1">Other uses of this word</summary><MeaningList senses={otherSenses} /></details>}
+                  </section>
+                )}
 
                 {/* Vocabulary Tutor Status/Error Banner */}
                 {vocabError && (
@@ -365,7 +368,7 @@ export const BritishInspector: React.FC<BritishInspectorProps> = ({
 
                 {/* Contextual Meaning & Translation Card (Local AI) */}
                 {vocabResult && (
-                  <div className="p-3.5 rounded-xl bg-background/60 border border-border space-y-2">
+                  <div className="p-3 rounded-xl bg-background/60 border border-border space-y-2">
                     <div className="flex items-center justify-between">
                       <h4 className="text-[11px] font-bold uppercase tracking-wider text-accent flex items-center gap-1">
                         <Sparkles className="w-3.5 h-3.5" />
@@ -374,14 +377,14 @@ export const BritishInspector: React.FC<BritishInspectorProps> = ({
                     </div>
 
                     <div className="space-y-1">
-                      <p className="text-sm font-bold text-emerald-400 font-sans">
+                      <p className="text-xs font-bold text-emerald-400 font-sans">
                         {vocabResult.translation}
                       </p>
                       <p className="text-xs text-text-primary leading-relaxed font-sans">
                         {vocabResult.contextual_meaning}
                       </p>
                       <p className="text-[11px] text-text-muted italic pt-1 border-t border-border/30">
-                        EN: {vocabResult.meaning_en}
+                        Meaning: {vocabResult.meaning_en}
                       </p>
                     </div>
                   </div>
@@ -410,7 +413,7 @@ export const BritishInspector: React.FC<BritishInspectorProps> = ({
                 {vocabResult?.examples && vocabResult.examples.length > 0 && (
                   <div className="p-3 rounded-xl bg-background/50 border border-border/80 space-y-2">
                     <h4 className="text-[10px] font-bold uppercase tracking-wider text-text-secondary">
-                      Ejemplos de Uso
+                      Examples in context
                     </h4>
                     <div className="space-y-2">
                       {vocabResult.examples.map((ex, idx) => (
@@ -423,22 +426,7 @@ export const BritishInspector: React.FC<BritishInspectorProps> = ({
                   </div>
                 )}
 
-                {/* Fallback Dictionary Definition Card */}
-                {dictEntry && !vocabResult && (
-                  <div className="p-3.5 rounded-xl bg-background/50 border border-border/80 space-y-2">
-                    <h4 className="text-[11px] font-bold uppercase tracking-wider text-text-secondary">Definition (EN)</h4>
-                    <p className="text-xs text-text-primary leading-relaxed font-sans">
-                      {dictEntry.definition_en || 'No specific definition found.'}
-                    </p>
-                    {dictEntry.example_en && (
-                      <div className="mt-2.5 pt-2 border-t border-border/40">
-                        <p className="text-[11px] text-text-muted italic">
-                          "{dictEntry.example_en}"
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                )}
+
               </div>
             ) : (
               <div className="py-20 text-center px-4 text-text-muted space-y-3">
@@ -465,7 +453,7 @@ export const BritishInspector: React.FC<BritishInspectorProps> = ({
             ) : tutorExplanation ? (
               <div className="space-y-4 animate-in fade-in duration-150">
                 {/* Contextual Meaning */}
-                <div className="p-3.5 rounded-xl bg-surface-raised border border-border space-y-1.5">
+                <div className="p-3 rounded-xl bg-surface-raised border border-border space-y-1.5">
                   <div className="flex items-center gap-1.5 text-accent text-xs font-bold">
                     <Sparkles className="w-3.5 h-3.5" />
                     <span>Significado en Contexto</span>
@@ -477,7 +465,7 @@ export const BritishInspector: React.FC<BritishInspectorProps> = ({
 
                 {/* Connected Speech Tips */}
                 {tutorExplanation.connected_speech && tutorExplanation.connected_speech.length > 0 && (
-                  <div className="p-3.5 rounded-xl bg-background/60 border border-border space-y-2">
+                  <div className="p-3 rounded-xl bg-background/60 border border-border space-y-2">
                     <h4 className="text-[11px] font-bold uppercase tracking-wider text-amber-400">
                       British Connected Speech
                     </h4>
@@ -494,7 +482,7 @@ export const BritishInspector: React.FC<BritishInspectorProps> = ({
 
                 {/* Key Vocabulary & Phrasal Verbs */}
                 {tutorExplanation.key_vocabulary && tutorExplanation.key_vocabulary.length > 0 && (
-                  <div className="p-3.5 rounded-xl bg-background/60 border border-border space-y-2">
+                  <div className="p-3 rounded-xl bg-background/60 border border-border space-y-2">
                     <h4 className="text-[11px] font-bold uppercase tracking-wider text-emerald-400">
                       Vocabulario & Phrasal Verbs
                     </h4>
@@ -517,7 +505,7 @@ export const BritishInspector: React.FC<BritishInspectorProps> = ({
             ) : (
               <div className="py-12 text-center px-4 text-text-muted space-y-3">
                 {tutorError ? (
-                  <div className="p-3.5 rounded-xl bg-danger/10 border border-danger/30 text-left space-y-2 mb-3">
+                  <div className="p-3 rounded-xl bg-danger/10 border border-danger/30 text-left space-y-2 mb-3">
                     <div className="flex items-center gap-2 text-danger font-bold text-xs uppercase tracking-wider">
                       <AlertCircle className="w-4 h-4 shrink-0" />
                       <span>Error al obtener análisis</span>

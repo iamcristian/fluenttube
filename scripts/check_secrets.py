@@ -4,11 +4,16 @@ This is a focused check for common credential formats, not a complete secret det
 Run from any directory: python scripts/check_secrets.py [--history]
 """
 import argparse
+import hashlib
 import re
 import subprocess
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
+# Reviewed public dictionary archive; altered or other large files still fail.
+PUBLIC_DATA_SHA256 = {
+    "backend/app/resources/wordnet/wordnet.zip": "cbda5ea6eef7f36a97a43d4a75f85e07fccbb4f23657d27b4ccbc93e2646ab59",
+}
 PATTERNS = {
     "Google API key": re.compile(rb"AIza[0-9A-Za-z_-]{35}"),
     "GitHub token": re.compile(rb"(?:gh[pousr]_[A-Za-z0-9]{36,255}|github_pat_[A-Za-z0-9_]{50,255})"),
@@ -48,6 +53,9 @@ def main():
         if path.name == ".env" or (path.name.startswith(".env.") and path.name != ".env.example"):
             findings.append(f"{name}: private environment file is publishable")
         if path.stat().st_size > 2_000_000:
+            expected = PUBLIC_DATA_SHA256.get(name)
+            if expected and hashlib.sha256(path.read_bytes()).hexdigest() == expected:
+                continue
             findings.append(f"{name}: larger than 2 MB; review before publishing")
             continue
         findings.extend(inspect(name, path.read_bytes()))

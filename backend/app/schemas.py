@@ -143,8 +143,10 @@ class SessionResponseDTO(BaseModel):
 
 class HintRequestDTO(BaseModel):
     display_token_index: int
+    letter_count: int = Field(default=1, ge=1, le=2000)
 
 class HintResponseDTO(BaseModel):
+    hint_prefix: str = ""
     display_token_index: int
     hint_letter: str
     hinted_display_indices: List[int]
@@ -248,13 +250,16 @@ class TutorExplainRequestDTO(BaseModel):
     segment_id: int
     language: str = Field(default="es", max_length=10)
 
+class DictionarySenseDTO(BaseModel):
+    part_of_speech: str
+    meaning: str
+    examples: List[str] = Field(default_factory=list)
+    lemma: str
+
 class DictionaryEntryDTO(BaseModel):
+    senses: List[DictionarySenseDTO] = Field(default_factory=list)
+    definition_source: Optional[str] = None
     word: str
-    ipa_options: List[str] = Field(default_factory=list)
-    ipa_quality: str = "unavailable"
-    ipa_source: Optional[str] = None
-    ipa_version: Optional[str] = None
-    ipa_notes: List[str] = Field(default_factory=list)
     ipa_options: List[str] = Field(default_factory=list)
     ipa_quality: str = "unavailable"
     ipa_source: Optional[str] = None
@@ -298,3 +303,12 @@ class VocabularyExplainResponseDTO(BaseModel):
     cached: bool = False
     provider: str
     model: str
+
+
+class SentenceIpaWordDTO(BaseModel):
+    text: str
+    readings: List[str]
+
+class SentenceIpaDTO(BaseModel):
+    segment_id: int
+    words: List[SentenceIpaWordDTO]

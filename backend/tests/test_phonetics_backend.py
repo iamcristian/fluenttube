@@ -32,23 +32,34 @@ def test_legacy_dictionary_ipa_is_never_trusted(tmp_path):
         assert result.cached
 
 
-def test_unknown_online_pronunciation_is_not_presented_as_uk(tmp_path, monkeypatch):
-    async def source(word):
-        return {"phonetic": "/wɝld/", "meanings": [{"definitions": [{"definition": "a definition"}]}]}
-    monkeypatch.setattr(british_service, "fetch_free_dictionary", source)
-    engine = get_engine(f"sqlite:///{tmp_path / 'online.db'}")
+def test_local_dictionary_never_contacts_network(tmp_path, monkeypatch):
+    def blocked(*args, **kwargs):
+        raise AssertionError('Dictionary lookup must stay offline')
+    monkeypatch.setattr('httpx.AsyncClient', blocked)
+    engine = get_engine(f"sqlite:///{tmp_path / 'offline.db'}")
     init_db(engine)
     with Session(engine) as session:
-        result = asyncio.run(british_service.lookup_word("unknown", session))
-        assert result.phonetic_uk is None
-        assert result.definition_en == "a definition"
+        for word in ('approach', 'simplistic'):
+            session.add(DictionaryCache(word=word, phonetic_uk='/old/', definition_en='stale'))
+        session.commit()
+        for word in ('approach', 'simplistic'):
+            result = asyncio.run(british_service.lookup_word(word, session))
+            assert result.phonetic_uk and result.phonetic_uk != '/old/'
+            assert result.ipa_quality == 'dictionary'
+            assert result.definition_source == 'Princeton WordNet 3.0 (local)'
+            assert result.senses and result.senses[0].part_of_speech
+            assert result.example_en
+            assert result.definition_en != 'stale'
+            assert result.cached
+        unknown = asyncio.run(british_service.lookup_word('zxqvunknownword', session))
+        assert not unknown.ipa_options and not unknown.senses
 
 
 def test_homograph_and_apostrophe():
     assert resolve_pronunciation("read")["phonetic_uk"] is None
-    assert resolve_pronunciation("read")["ipa_options"] == ["/riːd/", "/red/"]
+    assert resolve_pronunciation("read")["ipa_options"] == ["/ɹˈiːd/", "/ɹˈɛd/"]
     assert resolve_pronunciation("can’t") == resolve_pronunciation("can't")
-    assert british_service.format_ipa("unknown", "AA1 B") is None
+    assert british_service.format_ipa("zxqvunknownword", "AA1 B") is None
 
 
 def test_migration_preserves_legacy_rows_and_backup(tmp_path):

@@ -19,21 +19,21 @@ export const SegmentList: React.FC<SegmentListProps> = ({
   const activeItemRef = useRef<HTMLButtonElement | null>(null);
   const { retryingSegmentId } = useStudyStore();
 
-  // Automatically scroll active segment into view within the container
+  const listRef = useRef<HTMLDivElement>(null);
+  // Scroll only the sentence list, never the video column or the page.
   useEffect(() => {
-    if (
-      activeItemRef.current &&
-      typeof activeItemRef.current.scrollIntoView === 'function'
-    ) {
-      activeItemRef.current.scrollIntoView({
-        block: 'nearest',
-        behavior: 'smooth',
-      });
-    }
+    const list = listRef.current;
+    const item = activeItemRef.current;
+    if (!list || !item) return;
+    const viewport = list.getBoundingClientRect();
+    const bounds = item.getBoundingClientRect();
+    if (bounds.top < viewport.top) list.scrollTop += bounds.top - viewport.top;
+    else if (bounds.bottom > viewport.bottom) list.scrollTop += bounds.bottom - viewport.bottom;
   }, [activeSegmentId]);
 
   return (
     <div
+      ref={listRef}
       role="list"
       aria-label="Sentence segment list"
       className={`space-y-1.5 overflow-y-auto max-h-[500px] pr-1.5 custom-scrollbar ${className}`}

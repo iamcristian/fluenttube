@@ -1,0 +1,8 @@
+{
+  "project": "ipa-dict English (UK / Received Pronunciation)",
+  "revision": "972cd67dd5f96bc5660e28070cde26e3928abcd7",
+  "url": "https://github.com/open-dict-data/ipa-dict",
+  "upstream": "https://github.com/leoboiko/ipacards",
+  "license": "English UK data: GPL-3.0; repository utilities: MIT",
+  "sha256": "221394caef0cf723b4f2df81a98ac33191293257b88aed5b1fb89466d3a0dc77"
+}

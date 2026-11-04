@@ -1,6 +1,6 @@
 # FluentTube AI — API Contracts & Schema Reference
 
-Specification Reference: Section 5 (`specification.md`)
+See [architecture](architecture.md) for responsibilities and [the OpenAPI snapshot](openapi.json) for the complete schema.
 
 ---
 
@@ -113,8 +113,8 @@ Internal server errors (500) return `INTERNAL_ERROR` without leaking stack trace
 
 ## 4. OpenAPI Specification
 
-The machine-readable OpenAPI schema is exported at [`docs/openapi.json`](file:///c:/Users/crisa/Workspace/system-design/english-learning/docs/openapi.json).
-Frontend TypeScript definitions in [`frontend/src/api/types.ts`](file:///c:/Users/crisa/Workspace/system-design/english-learning/frontend/src/api/types.ts) mirror these contracts.
+The machine-readable OpenAPI schema is exported at [`openapi.json`](openapi.json).
+Frontend TypeScript definitions in [`frontend/src/api/types.ts`](../frontend/src/api/types.ts) mirror these contracts.
 
 
 ## Local Video Imports
@@ -132,3 +132,19 @@ Opening the sentence tutor generates the explanation immediately. The fixed prof
 ## Hyphenated dictation words
 
 Internal hyphens (ASCII, Unicode hyphen and non-breaking hyphen) stay in one display word, including hints and live feedback. Comparison still accepts spaces in place of hyphens: `passer-by` and `passer by` compare equally, but `passer` alone is incomplete. En/em dashes remain punctuation separators. This changes text comparison and display, not the speech model or existing transcripts.
+
+## Offline dictionary
+
+`GET /api/british/dictionary?word=...` reads bundled UK IPA and WordNet data, without external HTTP requests. Existing cached IPA is ignored; legacy definitions are retained only when there is no local source entry. `senses` contains `part_of_speech`, `meaning`, `examples` and `lemma`. `definition_source` identifies the source independently of `ipa_source`. Legacy scalar definition/example fields remain supported.
+
+## Progressive hints and British practice guide
+
+Hint requests accept `letter_count` (default 1) and return `hint_prefix`. Repeating the same request is idempotent; assisted scoring still records the display index only once. The client increases the prefix of the first unfinished word, advancing only when that word has been typed correctly.
+
+`GET /api/british/sentence/{segment_id}` returns local British dictionary readings in sentence order for completed/revealed segments. The source recording accent does not affect the guide. Ambiguous words retain alternative readings; missing entries remain explicitly unavailable. This is a broad word-by-word practice reference, not audio alignment or connected-speech transcription.
+
+Source/license/version metadata remains in API responses and third-party notices; learner panels show the pronunciation, meaning and examples without provider/cache/source footers.
+
+Sentence IPA displays one reading per word, initially the first local dictionary reading. Words with alternatives are underlined buttons; opening one exposes a labelled selector below the continuous sentence. Selecting a variant replaces that word in place and restores focus. Variant controls close with Escape or an outside click. Choices are isolated by sentence within the active guide.
+
+The word inspector prioritises senses matching the contextual part of speech (when available); other grammatical uses are collapsed. Local function-word definitions supplement WordNet, which does not index prepositions/articles. WordNet examples using only a synonym rather than the queried lemma are omitted.

@@ -48,9 +48,19 @@ El límite inicial es **60 minutos / 250 MiB**. Puedes buscar videos, filtrar lo
 
 La transcripción de archivos se hace en tu computadora. Las importaciones largas guardan avances por partes para poder continuar después de un reinicio.
 
+## Funciones de práctica
+
+- **Dictado en orden:** evalúa las palabras terminadas al escribir, reconoce contracciones y palabras con guion, y conserva el foco para seguir escribiendo. Cada pulsación de **Hint** muestra otra letra de la misma palabra pendiente.
+- **Word Inspector sin conexión:** IPA británico para más de 67.000 formas, significados en inglés, categoría gramatical y ejemplos disponibles en los diccionarios locales. Prioriza el uso contextual y agrupa los otros usos por separado.
+- **IPA de la frase en Shadowing Studio:** una lectura británica continua como guía, aunque el video tenga otro acento. Pulsa una lectura subrayada para elegir otra variante.
+- **Práctica oral:** graba tu voz y compara el audio original con tu toma, las palabras reconocidas, los tiempos y curvas experimentales de entonación.
+- **Phonetics Lab:** guías de sonidos, diagramas de articulación, ejercicios de escucha, repasos programados y curso guiado.
+- **Explain sentence con un clic:** traducción directa al español; significado, vocabulario, idioms, phrasal verbs, ejemplos y consejos de connected speech británico en inglés, si configuras el tutor opcional.
+- **Espacio de estudio:** video visible sobre la lista de frases con desplazamiento propio en escritorio, herramientas sin solaparse y notas compactas que se cierran al pulsar fuera o con Escape.
+
 ## Configuración y privacidad
 
-Las opciones están en `backend/.env`. La app funciona sin claves de IA. Para activar el tutor de Gemini, configura `GEMINI_API_KEY`, el modelo y `TUTOR_ENABLED=true`. Las funciones externas, como el tutor, diccionario y voz de referencia, pueden necesitar conexión y enviar texto al servicio correspondiente.
+Las opciones están en `backend/.env`. La app funciona sin claves de IA. Para activar el tutor de Gemini, configura `GEMINI_API_KEY`, el modelo y `TUTOR_ENABLED=true`. El IPA y las definiciones se consultan en archivos incluidos en la app: no requieren cuentas, claves, servicios de pago ni descargas durante la consulta. Britfone e ipa-dict UK aportan pronunciaciones; WordNet y entradas complementarias aportan significados. Consulta las [atribuciones y licencias](THIRD_PARTY_NOTICES.md). El tutor opcional y la voz sintética de referencia sí pueden enviar texto a servicios externos y necesitar conexión.
 
 **No subas `.env`, cookies, bases de datos, grabaciones ni videos a GitHub.** Están excluidos por `.gitignore`; solo se publica la plantilla `.env.example` sin credenciales.
 
@@ -70,4 +80,4 @@ La revisión de credenciales reconoce formatos comunes sin mostrar sus valores. 
 
 ## Alcance
 
-Es un proyecto personal y de portfolio para uso local. El feedback de voz estima palabras reconocidas y ritmo; no es una evaluación fonética de pronunciación. No incluye autenticación para alojarlo como servicio público. No se ha concedido una licencia de código abierto; consulta al propietario antes de reutilizar o redistribuir el código.
+Es un proyecto personal y de portfolio para uso local. El feedback de voz estima palabras reconocidas y ritmo; las curvas de entonación son experimentales y no califican fonemas. El IPA de las frases es una referencia de diccionario británico: no reproduce exactamente el audio ni el connected speech. Puedes seleccionar variantes; las palabras sin IPA aparecen entre corchetes. Los ejemplos se muestran cuando existen en la fuente y la cobertura de los diccionarios es limitada. No incluye autenticación para alojarlo como servicio público. No se ha concedido una licencia de código abierto; consulta al propietario antes de reutilizar o redistribuir el código.

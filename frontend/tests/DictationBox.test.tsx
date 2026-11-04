@@ -75,6 +75,24 @@ describe('DictationBox Component', () => {
     expect(screen.getByRole('status')).toHaveTextContent('2 / 3 words correct');
   });
 
+  it('reveals successive letters of the same word until the student completes it', async () => {
+    const hint = vi.spyOn(apiClient, 'getHint').mockImplementation(async (_session, index, count = 1) => ({ display_token_index: index, hint_letter: index === 0 ? 'g' : 't', hinted_display_indices: index === 0 ? [0] : [0, 1], hint_prefix: (index === 0 ? 'going' : 'to').slice(0, count) }));
+    renderWithQueryClient(<DictationBox segment={{ ...sampleSegment, text: 'going to school' }} />);
+    const button = screen.getByRole('button', { name: 'Get hint' });
+    fireEvent.click(button);
+    await screen.findByLabelText('Word hint: starts with g');
+    fireEvent.click(button);
+    await screen.findByLabelText('Word hint: starts with go');
+    expect(screen.queryByLabelText('Word hint: starts with t')).toBeNull();
+    fireEvent.click(button);
+    await screen.findByLabelText('Word hint: starts with goi');
+    expect(hint).toHaveBeenLastCalledWith('sess-uuid-101', 0, 3);
+    fireEvent.change(screen.getByRole('textbox'), { target: { value: 'going ' } });
+    fireEvent.click(button);
+    await screen.findByLabelText('Word hint: starts with t');
+    expect(hint).toHaveBeenLastCalledWith('sess-uuid-101', 1, 1);
+  });
+
   it('renders word slots with dashes capped at 8 and conceals answer text', async () => {
     renderWithQueryClient(<DictationBox segment={sampleSegment} />);
 
@@ -109,7 +127,7 @@ describe('DictationBox Component', () => {
     fireEvent.click(hintBtn);
 
     await waitFor(() => {
-      expect(hintSpy).toHaveBeenCalledWith('sess-uuid-101', 0);
+      expect(hintSpy).toHaveBeenCalledWith('sess-uuid-101', 0, 1);
     });
 
     // Verify hinted word slot displays first letter followed by dashes

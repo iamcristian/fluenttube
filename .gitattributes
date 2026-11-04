@@ -7,3 +7,6 @@
 *.svg text eol=lf
 *.yml text eol=lf
 *.ps1 text eol=crlf
+
+# Preserve original dictionary bytes, hashes and upstream license formatting.
+/backend/app/resources/** -text -whitespace

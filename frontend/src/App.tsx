@@ -66,7 +66,7 @@ export const AppContent: React.FC = () => {
     {currentView.type === 'study' ? <StudyPage videoId={currentView.videoId} onBackToLibrary={navigateToLibrary} />
       : currentView.type === 'settings' ? <SettingsPage onBackToLibrary={navigateToLibrary} />
       : <LibraryPage onSelectVideo={navigateToStudy} onNavigateToSettings={navigateToSettings} />}
-    <button disabled={isRecording} className="secondary-button fixed bottom-4 right-4 z-40 shadow-lg" onClick={() => openLab()}>Phonetics Lab</button>
+    {currentView.type !== 'study' && <button disabled={isRecording} className="secondary-button fixed bottom-4 right-4 z-40 shadow-lg" onClick={() => openLab()}>Phonetics Lab</button>}
     {labOpen && <PhoneticsLab reading={reading} onClose={() => setLabOpen(false)} />}
   </OpenWordAtlas.Provider>;
 };

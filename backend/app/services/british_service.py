@@ -1,17 +1,14 @@
 import asyncio
 import hashlib
-import json
 import logging
 import re
 import urllib.parse
 import uuid
 import unicodedata
 from pathlib import Path
-from typing import Optional, Tuple
+from typing import Optional
 
-import httpx
-from sqlmodel import Session, select
-from sqlalchemy.exc import IntegrityError
+from sqlmodel import Session
 
 from backend.app.config import settings
 from backend.app.models import DictionaryCache
@@ -75,157 +72,23 @@ async def get_or_create_british_audio(
         temporary.unlink(missing_ok=True)
 
 
-async def fetch_free_dictionary(word: str) -> Optional[dict]:
-    """Attempt lookup via Free Dictionary API."""
-    url = f"https://api.dictionaryapi.dev/api/v2/entries/en/{urllib.parse.quote(word)}"
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-        "Accept": "application/json",
-    }
-    try:
-        async with httpx.AsyncClient(timeout=4.0) as client:
-            res = await client.get(url, headers=headers)
-            if res.status_code == 200:
-                data = res.json()
-                if isinstance(data, list) and len(data) > 0:
-                    return data[0]
-    except Exception as e:
-        logger.debug(f"Free Dictionary API query failed for '{word}': {e}")
-    return None
-
-
-async def fetch_datamuse(word: str) -> Optional[dict]:
-    """Fallback lookup via Datamuse API (fast, resilient, no key required)."""
-    url = f"https://api.datamuse.com/words?sp={urllib.parse.quote(word)}&md=drp"
-    try:
-        async with httpx.AsyncClient(timeout=4.0) as client:
-            res = await client.get(url)
-            if res.status_code == 200:
-                data = res.json()
-                if isinstance(data, list) and len(data) > 0:
-                    for item in data:
-                        if item.get("word", "").lower() == word.lower():
-                            return item
-                    return data[0]
-    except Exception as e:
-        logger.debug(f"Datamuse query failed for '{word}': {e}")
-    return None
-
-
-async def lookup_word(
-    word: str,
-    session: Session,
-) -> DictionaryEntryDTO:
-    """
-    Look up British IPA, part of speech, English definition, and example.
-    Checks SQLite DictionaryCache first. Fallbacks to FreeDict then Datamuse.
-    """
-    normalized_word = unicodedata.normalize("NFC", word).strip().lower().replace("’", "'")
-    if not normalized_word:
-        return DictionaryEntryDTO(
-            word="",
-            audio_url="",
-            cached=False,
-        )
-
-    # 1. Check local SQLite cache (0 ms)
-    cached = session.exec(
-        select(DictionaryCache).where(DictionaryCache.word == normalized_word)
-    ).first()
-
-    if cached:
-        return DictionaryEntryDTO(
-            word=cached.word,
-            **resolve_pronunciation(normalized_word),
-            part_of_speech=cached.part_of_speech,
-            definition_en=cached.definition_en,
-            definition_es=cached.definition_es,
-            example_en=cached.example_en,
-            audio_url=f"/api/british/audio?text={urllib.parse.quote(cached.word)}",
-            cached=True,
-        )
-
-    # 2. Try Free Dictionary API
-    phonetic_uk = None
-    part_of_speech = None
-    definition_en = None
-    example_en = None
-
-    free_dict_data = await fetch_free_dictionary(normalized_word)
-    if free_dict_data:
-        meanings = free_dict_data.get("meanings", [])
-        if meanings:
-            m = meanings[0]
-            part_of_speech = m.get("partOfSpeech")
-            defs = m.get("definitions", [])
-            if defs:
-                definition_en = defs[0].get("definition")
-                example_en = defs[0].get("example")
-
-    # 3. If Free Dictionary didn't provide definitions or phonetics, try Datamuse fallback
-    if not definition_en:
-        dm_data = await fetch_datamuse(normalized_word)
-        if dm_data:
-            # Datamuse tags can give POS and pronunciation
-            tags = dm_data.get("tags", [])
-            for t in tags:
-                if t in ("v", "verb") and not part_of_speech:
-                    part_of_speech = "verb"
-                elif t in ("n", "noun") and not part_of_speech:
-                    part_of_speech = "noun"
-                elif t in ("adj", "adjective") and not part_of_speech:
-                    part_of_speech = "adjective"
-                elif t in ("adv", "adverb") and not part_of_speech:
-                    part_of_speech = "adverb"
-
-            defs = dm_data.get("defs", [])
-            if defs and not definition_en:
-                first_def = defs[0]
-                # Defs are formatted like: "v\tTo form a mental image..."
-                if "\t" in first_def:
-                    pos_letter, def_text = first_def.split("\t", 1)
-                    if not part_of_speech:
-                        part_of_speech = {
-                            "n": "noun",
-                            "v": "verb",
-                            "adj": "adjective",
-                            "adv": "adverb",
-                        }.get(pos_letter, pos_letter)
-                    definition_en = def_text.strip()
-                else:
-                    definition_en = first_def.strip()
-
-    # Definitions and pronunciation have independent provenance.
-    phonetic_uk = format_ipa(normalized_word)
-
-    # Save to SQLite DictionaryCache
-    new_entry = DictionaryCache(
-        word=normalized_word,
-        phonetic_uk=phonetic_uk,
-        part_of_speech=part_of_speech,
-        definition_en=definition_en,
-        definition_es=None,
-        example_en=example_en,
-        audio_relative_path=f"tts_uk/{sanitize_filename(normalized_word)}.mp3",
-    )
-    session.add(new_entry)
-    try:
-        session.commit()
-    except IntegrityError:
-        session.rollback()
-        # Another request may have populated this word while network lookup ran.
-        if session.get(DictionaryCache, normalized_word) is None:
-            raise
-        return await lookup_word(normalized_word, session)
-    session.refresh(new_entry)
-
+async def lookup_word(word: str, session: Session) -> DictionaryEntryDTO:
+    """Resolve IPA and definitions offline, preserving any legacy cached definitions."""
+    from backend.app.services.local_dictionary import lookup_meanings
+    normalized_word = unicodedata.normalize('NFKC', word).strip().lower().replace('’', "'")
+    cached = session.get(DictionaryCache, normalized_word) if normalized_word else None
+    senses = lookup_meanings(normalized_word) if normalized_word else []
+    first = senses[0] if senses else {}
+    examples = [example for sense in senses for example in sense['examples']]
     return DictionaryEntryDTO(
-        word=new_entry.word,
+        word=normalized_word,
         **resolve_pronunciation(normalized_word),
-        part_of_speech=new_entry.part_of_speech,
-        definition_en=new_entry.definition_en,
-        definition_es=new_entry.definition_es,
-        example_en=new_entry.example_en,
-        audio_url=f"/api/british/audio?text={urllib.parse.quote(new_entry.word)}",
-        cached=False,
+        part_of_speech=first.get('part_of_speech') or (cached.part_of_speech if cached else None),
+        definition_en=first.get('meaning') or (cached.definition_en if cached else None),
+        definition_es=cached.definition_es if cached else None,
+        example_en=next(iter(examples), None) or (cached.example_en if cached else None),
+        senses=senses,
+        definition_source=('Local learner dictionary + Princeton WordNet 3.0' if any(sense['part_of_speech'] in ('preposition', 'article') for sense in senses) else 'Princeton WordNet 3.0 (local)') if senses else 'Legacy local cache' if cached and cached.definition_en else None,
+        audio_url=f'/api/british/audio?text={urllib.parse.quote(normalized_word)}' if normalized_word else '',
+        cached=bool(cached),
     )

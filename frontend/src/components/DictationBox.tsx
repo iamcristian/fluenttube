@@ -262,9 +262,8 @@ export const DictationBox: React.FC<DictationBoxProps> = ({
       const activeSession = session || await ensureSession(segment.id);
       if (!activeSession) return;
 
-      const hintedSet = new Set(activeSession.hinted_display_indices);
       const candidate = targetNorm.display_tokens.find(
-        (dt) => !hintedSet.has(dt.index) && !matchedDisplayTokens.has(dt.index)
+        (dt) => !matchedDisplayTokens.has(dt.index)
       );
 
       if (!candidate) {
@@ -276,10 +275,14 @@ export const DictationBox: React.FC<DictationBoxProps> = ({
       setIsHinting(true);
       setHintMessage(null);
 
-      const hintRes = await apiClient.getHint(activeSession.id, candidate.index);
+      const previousPrefix = activeSession.hinted_prefixes?.[candidate.index] ?? (activeSession.hinted_display_indices.includes(candidate.index) ? candidate.text.slice(0, 1) : '');
+      const letterCount = Math.min(candidate.text.length, previousPrefix.length + 1);
+      const hintRes = await apiClient.getHint(activeSession.id, candidate.index, letterCount);
+      if (activeSegmentIdRef.current !== segment.id) return;
       setSession(segment.id, {
         ...activeSession,
         hinted_display_indices: hintRes.hinted_display_indices,
+        hinted_prefixes: { ...activeSession.hinted_prefixes, [candidate.index]: hintRes.hint_prefix || candidate.text.slice(0, letterCount) },
       });
     } catch (err: unknown) {
       console.error('Failed to get hint:', err);
@@ -519,16 +522,16 @@ export const DictationBox: React.FC<DictationBoxProps> = ({
           if (hintedIndicesSet.has(token.index)) {
             const cleanText = token.text.replace(/[^\w]/g, '');
             const firstChar = cleanText.length > 0 ? cleanText[0] : token.text[0];
-            const dashCount = Math.min(8, Math.max(2, token.text.length));
-            const remainderDashes = '-'.repeat(Math.max(1, dashCount - 1));
+            const prefix = session?.hinted_prefixes?.[token.index] || firstChar;
+            const remainderDashes = '-'.repeat(Math.max(0, Math.min(8, token.text.length - prefix.length)));
 
             return (
               <span
                 key={token.index}
-                aria-label={`Word hint: starts with ${firstChar}`}
+                aria-label={`Word hint: starts with ${prefix}`}
                 className="px-2.5 py-1 rounded text-xs font-mono font-semibold bg-amber-500/20 text-amber-300 border border-amber-500/40 tracking-wider"
               >
-                {firstChar}{remainderDashes}
+                {prefix}{remainderDashes}
               </span>
             );
           }
@@ -665,7 +668,7 @@ export const DictationBox: React.FC<DictationBoxProps> = ({
             title={
               isAnswerVisible
                 ? 'Hints disabled when answer is already revealed/completed'
-                : 'Reveal first letter of next hidden word (Alt+H)'
+                : 'Reveal another letter of the current word (Alt+H)'
             }
             aria-label="Get hint"
             className="px-3.5 py-2 rounded-control text-xs font-semibold bg-surface-raised border border-border text-text-secondary hover:text-white disabled:opacity-40 disabled:cursor-not-allowed transition flex items-center space-x-1.5"
@@ -793,7 +796,7 @@ export const DictationBox: React.FC<DictationBoxProps> = ({
                 </kbd>
               </div>
               <div className="flex items-center justify-between py-1.5 border-b border-border/50">
-                <span className="text-text-secondary">Reveal first-letter hint</span>
+                <span className="text-text-secondary">Reveal next letter</span>
                 <kbd className="px-2 py-0.5 rounded bg-surface-raised border border-border font-mono text-accent">
                   Alt+H
                 </kbd>

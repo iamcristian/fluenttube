@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState, useCallback } from 'react';
+import React, { useEffect, useRef, useState, useCallback, useContext } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   ArrowLeft,
@@ -25,6 +25,7 @@ import { VideoPlayer, VideoPlayerRef } from '../components/VideoPlayer';
 import { DictationBox } from '../components/DictationBox';
 import { ShadowingStudio } from '../components/ShadowingStudio';
 import { GrammarTutorDrawer } from '../components/GrammarTutorDrawer';
+import { OpenWordAtlas } from '../components/phoneticsNavigation';
 import { BritishInspector } from '../components/BritishInspector';
 import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts';
 import { PlayerAdapter } from '../player/types';
@@ -43,6 +44,7 @@ export const StudyPage: React.FC<StudyPageProps> = ({
   customPlayerAdapter,
 }) => {
   const queryClient = useQueryClient();
+  const openPhoneticsLab = useContext(OpenWordAtlas);
   const {
     video,
     activeSegmentId,
@@ -77,6 +79,22 @@ export const StudyPage: React.FC<StudyPageProps> = ({
   useEffect(() => {
     if (isInspectorOpen) inspectorRef.current?.scrollIntoView?.({ block: 'nearest', behavior: 'smooth' });
   }, [isInspectorOpen, selectedWord]);
+
+  useEffect(() => {
+    if (!isInspectorOpen) return;
+    const onOutside = (event: PointerEvent) => {
+      if (event.target instanceof Node && !inspectorRef.current?.contains(event.target)) setIsInspectorOpen(false);
+    };
+    const onEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setIsInspectorOpen(false);
+    };
+    document.addEventListener('pointerdown', onOutside, true);
+    document.addEventListener('keydown', onEscape);
+    return () => {
+      document.removeEventListener('pointerdown', onOutside, true);
+      document.removeEventListener('keydown', onEscape);
+    };
+  }, [isInspectorOpen]);
 
   const { data: fetchedVideo, isLoading, isError, error } = useQuery({
     queryKey: ['video', videoId],
@@ -365,7 +383,7 @@ export const StudyPage: React.FC<StudyPageProps> = ({
               />
 
               {/* Segment List Panel: Anti-Spoiler Transcript with Masked Dots */}
-              <div className="study-sentences bg-surface rounded-panel border border-border p-4 shadow-lg flex flex-col space-y-3">
+              <div data-expanded={isSidebarOpen} className="study-sentences bg-surface rounded-panel border border-border p-4 shadow-lg flex flex-col space-y-3">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-2">
                     <FileText className="w-4 h-4 text-accent" />
@@ -555,7 +573,7 @@ export const StudyPage: React.FC<StudyPageProps> = ({
               </div>
               </div>
 
-              <div className="flex flex-wrap items-center justify-between gap-3 px-1 text-xs text-text-secondary"><span>Take your time. Your progress is saved as you practice.</span><button className="quiet-button" aria-expanded={isInspectorOpen} onClick={() => setIsInspectorOpen(!isInspectorOpen)}><BookOpen size={16} />Vocabulary & study notes</button></div>
+              <div className="flex flex-wrap items-center justify-between gap-3 px-1 text-xs text-text-secondary"><span>Take your time. Your progress is saved as you practice.</span><div className="flex flex-wrap items-center gap-3"><button className="quiet-button" disabled={isRecording || !openPhoneticsLab} onClick={() => openPhoneticsLab?.()}>Phonetics Lab</button><button className="quiet-button" aria-expanded={isInspectorOpen} onClick={() => setIsInspectorOpen(!isInspectorOpen)}><BookOpen size={16} />Vocabulary & study notes</button></div></div>
               {video.completed_count === video.segment_count && video.segment_count > 0 && <div role="status" className="bg-accent/10 border border-accent/30 rounded-panel p-5"><h2 className="font-semibold text-accent">You’ve practiced every sentence. Nicely done.</h2><p className="text-sm text-text-secondary mt-2">Review a sentence, try speaking it, or pick a new video.</p><button className="primary-button mt-4" onClick={handleBackToLibrary}>Back to your library<ChevronRight size={16} /></button></div>}
             </section>
 
@@ -565,7 +583,7 @@ export const StudyPage: React.FC<StudyPageProps> = ({
               aria-label="British Study Inspector"
               className="study-inspector lg:col-span-12 bg-surface rounded-panel border border-border overflow-hidden flex flex-col scroll-mt-20"
             >
-              <div className="flex items-center justify-between px-5 pt-4"><h2 className="font-semibold">Your study notes</h2><button className="quiet-button" aria-label="Close study notes" onClick={() => setIsInspectorOpen(false)}><X size={18} /></button></div>
+              <div className="flex items-center justify-between px-5 pt-4"><h2 className="text-sm font-semibold">Your study notes</h2><button className="quiet-button" aria-label="Close study notes" onClick={() => setIsInspectorOpen(false)}><X size={18} /></button></div>
               <BritishInspector
                 selectedWord={selectedWord}
                 onClearSelectedWord={() => setSelectedWord(null)}

@@ -131,7 +131,7 @@ describe('GrammarTutorDrawer Component', () => {
     expect(screen.getByText(/In British English/i)).toBeInTheDocument();
     expect(screen.getByText(/Example Usage/i)).toBeInTheDocument();
     expect(screen.getByText('"I need to figure out this problem."')).toBeInTheDocument();
-    expect(screen.getByText(/gemini \(gemini-2.5-flash\)/i)).toBeInTheDocument();
+    expect(screen.queryByText(/gemini \(gemini-2.5-flash\)/i)).toBeNull();
   });
 
   it('renders cached explanation discreetly when cached = true', async () => {
@@ -148,7 +148,7 @@ describe('GrammarTutorDrawer Component', () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByText(/Cached response/i)).toBeInTheDocument();
+      expect(screen.queryByText(/Cached response/i)).toBeNull();
       expect(screen.getByText(mockExplanation.contextual_meaning)).toBeInTheDocument();
     });
   });

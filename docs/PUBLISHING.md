@@ -12,7 +12,7 @@ To back up your practice data with the default settings:
 
 Browser drafts and preferences live in browser local storage. The SQLite backup preserves saved library and exercise progress, but does not include unsubmitted browser drafts or preferences. Model files in `backend/data/models/` are optional for backup and can be downloaded again.
 
-## Before your first push
+## Before pushing
 
 Run from the project root:
 
@@ -33,8 +33,6 @@ git commit -m "Prepare FluentTube for GitHub"
 ```
 
 Create an empty GitHub repository with the desired visibility. Add its actual URL with `git remote add origin <YOUR_REPOSITORY_URL>` if there is no existing remote. Use `git remote -v` and `git branch --show-current` to check the destination and current branch before pushing with `git push -u origin HEAD`. Avoid force pushes.
-
-No repository is created and no code is uploaded by these documentation changes.
 
 ## Portfolio presentation
 

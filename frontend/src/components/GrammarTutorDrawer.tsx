@@ -7,7 +7,6 @@ import {
   Lightbulb,
   AlertCircle,
   Settings as SettingsIcon,
-  Zap,
   RefreshCw,
 } from 'lucide-react';
 import { apiClient, ApiError } from '../api/client';
@@ -334,22 +333,7 @@ export const GrammarTutorDrawer: React.FC<GrammarTutorDrawerProps> = ({
                 </section>
               )}
 
-              {/* Metadata & Cache Footer */}
-              <div className="pt-2 border-t border-border/60 flex items-center justify-between text-[11px] text-text-secondary">
-                <span className="flex items-center space-x-1">
-                  {currentExplanation.cached ? (
-                    <span className="text-emerald-400 font-semibold flex items-center space-x-1">
-                      <Zap className="w-3 h-3" />
-                      <span>Cached response</span>
-                    </span>
-                  ) : (
-                    <span>Generated live</span>
-                  )}
-                </span>
-                <span className="font-mono text-slate-400">
-                  {`${currentExplanation.provider} (${currentExplanation.model})`}
-                </span>
-              </div>
+
             </div>
           )}
         </div>

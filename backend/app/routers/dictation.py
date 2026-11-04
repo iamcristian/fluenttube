@@ -203,6 +203,7 @@ def get_hint(
         db.refresh(session_obj)
 
     return HintResponseDTO(
+        hint_prefix=target_display_token.text[:payload.letter_count],
         display_token_index=payload.display_token_index,
         hint_letter=hint_letter,
         hinted_display_indices=hinted_indices,

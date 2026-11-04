@@ -695,12 +695,12 @@
       }
     },
     "/api/videos/{video_id}/media": {
-      "get": {
+      "head": {
         "tags": [
           "local videos"
         ],
         "summary": "Get Local Video",
-        "operationId": "get_local_video_api_videos__video_id__media_get",
+        "operationId": "get_local_video_api_videos__video_id__media_head",
         "parameters": [
           {
             "name": "video_id",
@@ -733,12 +733,12 @@
           }
         }
       },
-      "head": {
+      "get": {
         "tags": [
           "local videos"
         ],
         "summary": "Get Local Video",
-        "operationId": "get_local_video_api_videos__video_id__media_get",
+        "operationId": "get_local_video_api_videos__video_id__media_head",
         "parameters": [
           {
             "name": "video_id",
@@ -1252,6 +1252,46 @@
         }
       }
     },
+    "/api/segments/{segment_id}/reference-audio": {
+      "get": {
+        "tags": [
+          "shadowing"
+        ],
+        "summary": "Reference Audio",
+        "operationId": "reference_audio_api_segments__segment_id__reference_audio_get",
+        "parameters": [
+          {
+            "name": "segment_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Segment Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/shadowing/evaluate": {
       "post": {
         "tags": [
@@ -1344,6 +1384,46 @@
                 "schema": {
                   "$ref": "#/components/schemas/ShadowingAttemptListDTO"
                 }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/segments/{segment_id}/reference-audio": {
+      "get": {
+        "tags": [
+          "shadowing"
+        ],
+        "summary": "Reference Audio",
+        "operationId": "reference_audio_segments__segment_id__reference_audio_get",
+        "parameters": [
+          {
+            "name": "segment_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Segment Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
               }
             }
           },
@@ -1642,7 +1722,7 @@
           "british"
         ],
         "summary": "Get British Audio",
-        "description": "Returns studio-grade British neural audio (en-GB-RyanNeural) for any word or sentence.\nZero tokens, zero VRAM, cached locally as MP3.",
+        "description": "Optional online speech synthesis, cached locally. Availability depends on Edge TTS.",
         "operationId": "get_british_audio_api_british_audio_get",
         "parameters": [
           {
@@ -1727,6 +1807,326 @@
           }
         }
       }
+    },
+    "/api/british/sentence/{segment_id}": {
+      "get": {
+        "tags": [
+          "british"
+        ],
+        "summary": "Get Sentence Ipa",
+        "operationId": "get_sentence_ipa_api_british_sentence__segment_id__get",
+        "parameters": [
+          {
+            "name": "segment_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Segment Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SentenceIpaDTO"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/phonetics/course": {
+      "get": {
+        "tags": [
+          "phonetics"
+        ],
+        "summary": "Course",
+        "operationId": "course_api_phonetics_course_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/phonetics/voice/{lesson_id}": {
+      "post": {
+        "tags": [
+          "phonetics"
+        ],
+        "summary": "Compare Voice",
+        "description": "Ephemeral comparison with the word example; never writes student scores.",
+        "operationId": "compare_voice_api_phonetics_voice__lesson_id__post",
+        "parameters": [
+          {
+            "name": "lesson_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Lesson Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_compare_voice_api_phonetics_voice__lesson_id__post"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/phonetics/catalog": {
+      "get": {
+        "tags": [
+          "phonetics"
+        ],
+        "summary": "Catalog",
+        "operationId": "catalog_api_phonetics_catalog_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/phonetics/audio/{lesson_id}": {
+      "get": {
+        "tags": [
+          "phonetics"
+        ],
+        "summary": "Lesson Audio",
+        "operationId": "lesson_audio_api_phonetics_audio__lesson_id__get",
+        "parameters": [
+          {
+            "name": "lesson_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Lesson Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/phonetics/quizzes/{lesson_id}": {
+      "post": {
+        "tags": [
+          "phonetics"
+        ],
+        "summary": "New Challenge",
+        "operationId": "new_challenge_api_phonetics_quizzes__lesson_id__post",
+        "parameters": [
+          {
+            "name": "lesson_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Lesson Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/phonetics/quizzes/{challenge_id}/audio": {
+      "get": {
+        "tags": [
+          "phonetics"
+        ],
+        "summary": "Quiz Audio",
+        "operationId": "quiz_audio_api_phonetics_quizzes__challenge_id__audio_get",
+        "parameters": [
+          {
+            "name": "challenge_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Challenge Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/phonetics/quizzes/{challenge_id}/answer": {
+      "post": {
+        "tags": [
+          "phonetics"
+        ],
+        "summary": "Answer",
+        "operationId": "answer_api_phonetics_quizzes__challenge_id__answer_post",
+        "parameters": [
+          {
+            "name": "challenge_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Challenge Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReviewAnswer"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/phonetics/reviews": {
+      "get": {
+        "tags": [
+          "phonetics"
+        ],
+        "summary": "Reviews",
+        "operationId": "reviews_api_phonetics_reviews_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -1789,6 +2189,20 @@
         ],
         "title": "AlignmentOpDTO"
       },
+      "Body_compare_voice_api_phonetics_voice__lesson_id__post": {
+        "properties": {
+          "audio_file": {
+            "type": "string",
+            "format": "binary",
+            "title": "Audio File"
+          }
+        },
+        "type": "object",
+        "required": [
+          "audio_file"
+        ],
+        "title": "Body_compare_voice_api_phonetics_voice__lesson_id__post"
+      },
       "Body_evaluate_shadowing_api_shadowing_evaluate_post": {
         "properties": {
           "audio_file": {
@@ -1810,6 +2224,12 @@
               }
             ],
             "title": "Client Request Id"
+          },
+          "evaluation_version": {
+            "type": "string",
+            "pattern": "^[12]$",
+            "title": "Evaluation Version",
+            "default": "1"
           }
         },
         "type": "object",
@@ -1840,6 +2260,12 @@
               }
             ],
             "title": "Client Request Id"
+          },
+          "evaluation_version": {
+            "type": "string",
+            "pattern": "^[12]$",
+            "title": "Evaluation Version",
+            "default": "1"
           }
         },
         "type": "object",
@@ -1946,9 +2372,68 @@
       },
       "DictionaryEntryDTO": {
         "properties": {
+          "senses": {
+            "items": {
+              "$ref": "#/components/schemas/DictionarySenseDTO"
+            },
+            "type": "array",
+            "title": "Senses"
+          },
+          "definition_source": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Definition Source"
+          },
           "word": {
             "type": "string",
             "title": "Word"
+          },
+          "ipa_options": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Ipa Options"
+          },
+          "ipa_quality": {
+            "type": "string",
+            "title": "Ipa Quality",
+            "default": "unavailable"
+          },
+          "ipa_source": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ipa Source"
+          },
+          "ipa_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ipa Version"
+          },
+          "ipa_notes": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Ipa Notes"
           },
           "phonetic_uk": {
             "anyOf": [
@@ -2022,6 +2507,36 @@
         ],
         "title": "DictionaryEntryDTO"
       },
+      "DictionarySenseDTO": {
+        "properties": {
+          "part_of_speech": {
+            "type": "string",
+            "title": "Part Of Speech"
+          },
+          "meaning": {
+            "type": "string",
+            "title": "Meaning"
+          },
+          "examples": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Examples"
+          },
+          "lemma": {
+            "type": "string",
+            "title": "Lemma"
+          }
+        },
+        "type": "object",
+        "required": [
+          "part_of_speech",
+          "meaning",
+          "lemma"
+        ],
+        "title": "DictionarySenseDTO"
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -2073,6 +2588,13 @@
           "display_token_index": {
             "type": "integer",
             "title": "Display Token Index"
+          },
+          "letter_count": {
+            "type": "integer",
+            "maximum": 2000.0,
+            "minimum": 1.0,
+            "title": "Letter Count",
+            "default": 1
           }
         },
         "type": "object",
@@ -2083,6 +2605,11 @@
       },
       "HintResponseDTO": {
         "properties": {
+          "hint_prefix": {
+            "type": "string",
+            "title": "Hint Prefix",
+            "default": ""
+          },
           "display_token_index": {
             "type": "integer",
             "title": "Display Token Index"
@@ -2318,6 +2845,19 @@
         ],
         "title": "RevealResponseDTO"
       },
+      "ReviewAnswer": {
+        "properties": {
+          "selected_id": {
+            "type": "string",
+            "title": "Selected Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "selected_id"
+        ],
+        "title": "ReviewAnswer"
+      },
       "SegmentDTO": {
         "properties": {
           "id": {
@@ -2398,6 +2938,48 @@
         ],
         "title": "SegmentDTO"
       },
+      "SentenceIpaDTO": {
+        "properties": {
+          "segment_id": {
+            "type": "integer",
+            "title": "Segment Id"
+          },
+          "words": {
+            "items": {
+              "$ref": "#/components/schemas/SentenceIpaWordDTO"
+            },
+            "type": "array",
+            "title": "Words"
+          }
+        },
+        "type": "object",
+        "required": [
+          "segment_id",
+          "words"
+        ],
+        "title": "SentenceIpaDTO"
+      },
+      "SentenceIpaWordDTO": {
+        "properties": {
+          "text": {
+            "type": "string",
+            "title": "Text"
+          },
+          "readings": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Readings"
+          }
+        },
+        "type": "object",
+        "required": [
+          "text",
+          "readings"
+        ],
+        "title": "SentenceIpaWordDTO"
+      },
       "SessionCreateDTO": {
         "properties": {
           "client_request_id": {
@@ -2470,6 +3052,23 @@
       },
       "ShadowingAttemptDTO": {
         "properties": {
+          "evaluation_version": {
+            "type": "string",
+            "title": "Evaluation Version",
+            "default": "1"
+          },
+          "prosody": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Prosody"
+          },
           "id": {
             "type": "integer",
             "title": "Id"

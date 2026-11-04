@@ -1,18 +1,15 @@
 # Documentation
 
-Start with the root [README](../README.md) for installation and current behavior, or the [Spanish guide](../README.es.md).
+Start with the [English README](../README.md) or [Spanish guide](../README.es.md) for installation and current features.
 
 | Document | Purpose |
 | --- | --- |
-| [Publishing and backup](PUBLISHING.md) | Prepare a push, protect private data and back up local progress |
+| [Architecture](architecture.md) | Local processing, practice state, dictionaries and optional services |
+| [API contracts](contracts.md) | Request conventions, scoring and current study features |
+| [OpenAPI snapshot](openapi.json) | Machine-readable API schema |
+| [Publishing and backup](PUBLISHING.md) | Protect private data, validate changes and back up local progress |
 | [Security](../SECURITY.md) | Credentials, local access and vulnerability reporting |
-| [UX review](UX_REVIEW.md) | Rationale for the library and Listen / Write / Speak workflow |
-| [Contracts](contracts.md) | API conventions and scoring contracts |
-| [Specification](specification.md) | Original detailed design and project scope |
-| [Decisions](decisions.md) | Historical design decisions |
-| [Implementation status](implementation-status.md) | Historical implementation checklist |
-| [Validation](validation.md) | Historical validation records |
-| [Benchmarks](benchmarks.md) | Recorded measurements from a particular machine |
-| [Technical review](technical-review-and-improvement-plan.md) | Earlier findings and improvement proposals |
+| [Third-party notices](../THIRD_PARTY_NOTICES.md) | Bundled dictionary sources, attribution and licenses |
+| [Screenshot guide](assets/screenshots/README.md) | Synthetic demo captures used in the READMEs |
 
-Specifications, generated API snapshots, measurements and historical reports reflect their recorded point in time. Their test counts, machine details and launcher references are not current setup instructions. The running API exposes its current schema at `/api/openapi.json` and its interactive docs at `/api/docs`.
+The running API exposes its schema at `/api/openapi.json` and interactive documentation at `/api/docs`. Run the checks in the root README to validate your checkout; old task plans, status reports and machine-specific test counts are no longer maintained as documentation.

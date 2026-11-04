@@ -348,3 +348,12 @@ def test_dictation_idempotency_returns_matched_attempt_result_not_later_attempt(
     assert res1_retry["attempt_id"] == attempt_id_1
     assert res1_retry["is_exact"] is False
     assert res1_retry["score"] == score_1
+
+
+def test_progressive_hint_prefix_is_idempotent_and_stays_on_requested_word(client):
+    session_id = client.post('/api/segments/1/sessions', json={}).json()['id']
+    for count, prefix in [(1, 'r'), (2, 're'), (3, 'rea'), (3, 'rea'), (100, 'ready')]:
+        result = client.post(f'/api/sessions/{session_id}/hint', json={'display_token_index': 1, 'letter_count': count})
+        assert result.status_code == 200
+        assert result.json()['hint_prefix'] == prefix
+        assert result.json()['hinted_display_indices'] == [1]

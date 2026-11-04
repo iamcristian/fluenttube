@@ -16,10 +16,14 @@ FluentTube turns English speech into short exercises. Import a video, listen to 
 
 - **Bring your own video:** import MP4 or WebM files, with local transcription and native playback.
 - **A focused practice flow:** Listen → Write → Speak, with replay, speed controls and sentence looping.
-- **Dictation feedback:** word alignment, hints, answer reveal and saved drafts.
-- **Speaking practice:** record a short response and compare recognized words and timing.
+- **Dictation in sentence order:** checks completed words as you type, recognises contractions and hyphenated words, and keeps your place in the input. Hints reveal successive letters of the current unfinished word.
+- **Offline word inspector:** British IPA for over 67,000 spellings, plus English meanings, parts of speech and available examples from local dictionaries. Contextual uses come first; other uses stay collapsed.
+- **British sentence IPA:** a continuous pronunciation guide below the shadowing sentence, even when the video has another accent. Click an underlined reading to choose a variant.
+- **Speaking practice:** record yourself, compare original and recorded audio, and review recognised words, timing and experimental pitch contours.
+- **Phonetics Lab:** explore sound guides, articulation diagrams, listening quizzes, scheduled reviews and a guided course.
 - **A personal library:** search, filters, progress, resume, review completed videos and remove unwanted videos with confirmation.
-- **Optional AI assistance:** contextual grammar and vocabulary explanations when a tutor provider is configured.
+- **One-click sentence explanations:** direct Spanish translation, followed by English explanations, useful vocabulary, idioms, phrasal verbs, examples and British connected-speech tips when an optional tutor is configured.
+- **A quieter workspace:** the video stays visible above the scrolling sentence list on desktop. Compact study notes dismiss with an outside click or Escape; study tools share the footer without overlapping.
 - **Recoverable imports:** long local transcriptions save completed five-minute parts and can resume after a restart.
 
 ## Screenshots
@@ -95,7 +99,7 @@ Copy `backend/.env.example` to `backend/.env` and keep real credentials there. T
 | `GEMINI_API_KEY` | Optional credential for the Gemini tutor |
 | `TUTOR_MODEL` | Provider model name; availability depends on your account |
 
-You can practice without an API key. When used, cloud tutor features send sentence context or vocabulary text to the configured provider. Dictionary and reference speech features can also contact external services. Local video transcription runs on your computer.
+You can practice without an API key. When used, cloud tutor features send sentence context or vocabulary text to the configured provider. British IPA and dictionary definitions use bundled local data without accounts, paid APIs or runtime downloads. Optional reference speech uses an online synthetic voice. Local video transcription runs on your computer. See [dataset attribution and licenses](THIRD_PARTY_NOTICES.md).
 
 The API binds to `127.0.0.1:8000`; this is a single-user local application, not an authenticated public hosting service. API documentation is available at [localhost:8000/api/docs](http://127.0.0.1:8000/api/docs) while running.
 
@@ -109,6 +113,7 @@ flowchart LR
     API --> SQLite[(SQLite: library + progress)]
     Jobs --> Media[FFmpeg + local media storage]
     Jobs --> ASR[Faster-Whisper]
+    API --> Dictionaries[Bundled UK IPA + WordNet]
     API -. optional .-> Tutor[AI tutor provider]
 ```
 
@@ -118,6 +123,7 @@ The frontend uses TanStack Query for server state, Zustand for practice state, a
 backend/
   app/routers/       HTTP endpoints
   app/services/      Import, speech recognition, alignment and tutor logic
+  app/resources/     Bundled dictionary data and licenses
   tests/             Backend tests
   .env.example       Safe configuration template
 frontend/
@@ -127,7 +133,7 @@ frontend/
   src/stores/        Practice state and preferences
   tests/             Frontend tests
 shared/              Normalization rules and test fixtures
-docs/                Architecture, design records and repository guides
+docs/                Current architecture, API contracts and backup guide
 scripts/             Local launchers and credential checks
 ```
 
@@ -145,7 +151,9 @@ Backend tests use isolated storage. The credential check looks for common key fo
 
 ## Practical limits
 
-- Speaking feedback estimates recognized words and timing. It is not a phonetic pronunciation assessment.
+- Speaking feedback estimates recognised words and timing. Pitch visualisation is experimental; neither feature grades individual phonemes or certifies an accent.
+- Sentence IPA is a broad British dictionary reference, independent of the recording. It does not model connected speech or infer the intended homograph. The first reading is shown initially; alternatives are selectable and missing words appear in brackets.
+- Local dictionaries have finite coverage. Examples appear only when available; proper names, new words and some inflections may be absent.
 - CPU transcription can take time. GPU support depends on compatible NVIDIA hardware, drivers and the installed runtime.
 - Browser drafts and preferences are stored separately from the SQLite library.
 - Removing a video permanently removes its practice history and the app's stored local copies after confirmation.
@@ -156,6 +164,6 @@ GitHub backs up the **source code**, not your videos or personal progress. See [
 
 ## Project status and license
 
-This is a portfolio and personal learning project under active development. Historical specifications and validation notes are kept in `docs/`; they describe decisions at the time and may differ from current behavior.
+This is a portfolio and personal learning project under active development. See the [documentation index](docs/README.md) for the current architecture, API contracts and backup guide.
 
 No open-source license has been granted. The source is available for review; contact the repository owner for permission to reuse or redistribute it. Third-party dependencies retain their own licenses.

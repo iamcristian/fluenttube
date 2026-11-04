@@ -12,6 +12,7 @@ import {
   Pause,
   CheckCircle2,
 } from 'lucide-react';
+import { SentenceIpa } from './SentenceIpa';
 import { Contour } from './ProsodyPanel';
 import { OriginalWaveform } from './OriginalWaveform';
 import WaveSurfer from 'wavesurfer.js';
@@ -314,6 +315,7 @@ export const ShadowingStudio: React.FC<ShadowingStudioProps> = ({
             <p className="text-sm font-medium text-white leading-relaxed">
               "{segment?.text}"
             </p>
+            {segment && <SentenceIpa segmentId={segment.id} text={segment.text} />}
           </div>
 
           {/* Recorder Error Message */}

@@ -120,10 +120,10 @@ export const apiClient = {
     }),
   getSession: (sessionId: string): Promise<import('./types').SessionResponseDTO> =>
     request<import('./types').SessionResponseDTO>(`/sessions/${sessionId}`),
-  getHint: (sessionId: string, displayTokenIndex: number): Promise<import('./types').HintResponseDTO> =>
+  getHint: (sessionId: string, displayTokenIndex: number, letterCount = 1): Promise<import('./types').HintResponseDTO> =>
     request<import('./types').HintResponseDTO>(`/sessions/${sessionId}/hint`, {
       method: 'POST',
-      body: JSON.stringify({ display_token_index: displayTokenIndex }),
+      body: JSON.stringify({ display_token_index: displayTokenIndex, letter_count: letterCount }),
     }),
   revealAnswer: (sessionId: string): Promise<import('./types').RevealResponseDTO> =>
     request<import('./types').RevealResponseDTO>(`/sessions/${sessionId}/reveal`, {
@@ -185,6 +185,8 @@ export const apiClient = {
       method: 'POST',
       body: JSON.stringify(req),
     }),
+  getSentenceIpa: (segmentId: number): Promise<import('./types').SentenceIpaDTO> =>
+    request<import('./types').SentenceIpaDTO>(`/british/sentence/${segmentId}`),
   getDictionaryEntry: (word: string): Promise<import('./types').DictionaryEntryDTO> =>
     request<import('./types').DictionaryEntryDTO>(`/british/dictionary?word=${encodeURIComponent(word)}`),
   getBritishAudioUrl: (text: string): string =>

@@ -119,6 +119,7 @@ export interface SessionResponseDTO {
   id: string;
   segment_id: number;
   hinted_display_indices: number[];
+  hinted_prefixes?: Record<number, string>;
   answer_revealed: boolean;
   last_input: string;
   last_result?: Record<string, unknown> | null;
@@ -126,10 +127,12 @@ export interface SessionResponseDTO {
 }
 
 export interface HintRequestDTO {
+  letter_count?: number;
   display_token_index: number;
 }
 
 export interface HintResponseDTO {
+  hint_prefix?: string;
   display_token_index: number;
   hint_letter: string;
   hinted_display_indices: number[];
@@ -265,6 +268,8 @@ export interface TutorExplainRequestDTO {
 }
 
 export interface DictionaryEntryDTO {
+  senses?: { part_of_speech: string; meaning: string; examples: string[]; lemma: string }[];
+  definition_source?: string | null;
   word: string;
   phonetic_uk: string | null;
   ipa_options?: string[];
@@ -330,4 +335,9 @@ export interface ProsodyResult {
   reference?: AcousticFeatures;
   recording?: AcousticFeatures;
   warning_codes: string[];
+}
+
+export interface SentenceIpaDTO {
+  segment_id: number;
+  words: { text: string; readings: string[] }[];
 }

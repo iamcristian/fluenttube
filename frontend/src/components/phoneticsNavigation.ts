@@ -1,7 +1,7 @@
 import { createContext } from 'react';
 
 export interface WordReading { word: string; ipa: string }
-export const OpenWordAtlas = createContext<((reading: WordReading) => void) | null>(null);
+export const OpenWordAtlas = createContext<((reading?: WordReading) => void) | null>(null);
 
 // Match whole chart entries first: /dʒ/, /iː/ and /aɪ/ are single choices.
 // Keep unfamiliar symbols visible instead of substituting a different sound.

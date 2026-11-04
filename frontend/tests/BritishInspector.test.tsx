@@ -99,7 +99,7 @@ describe('BritishInspector Component & Contextual Dictionary', () => {
     expect(await screen.findByText('soportar; tolerar')).toBeInTheDocument();
     expect(screen.getByText(/En esta frase, significa tolerar un ruido muy molesto/i)).toBeInTheDocument();
     expect(screen.getByText('put up with noise')).toBeInTheDocument();
-    expect(screen.getByText('ollama (llama3.2)')).toBeInTheDocument();
+    expect(screen.queryByText(/llama3.2/)).toBeNull();
     fireEvent.click(screen.getByRole('button',{name:'Practicar los sonidos de /pʊt ʌp wɪð/'}));
     expect(openAtlas).toHaveBeenCalledWith({word:'put up with',ipa:'/pʊt ʌp wɪð/'});
   });
@@ -161,7 +161,7 @@ it('shows dictionary, variants and editorial status while the tutor is pending',
   expect(await screen.findByText('Definition of read')).toBeInTheDocument();
   expect(screen.getByText('UK /riːd/')).toBeInTheDocument();
   expect(screen.getByText('UK /red/')).toBeInTheDocument();
-  expect(screen.getByText(/review pending/)).toHaveTextContent('fluenttube-original-gb-seed');
+  expect(screen.queryByText(/review pending|Pronunciation source|fluenttube-original-gb-seed/)).toBeNull();
   expect(screen.getByRole('status')).toHaveTextContent('Loading contextual');
 });
 
@@ -209,4 +209,28 @@ it('reports playback rejection and releases audio on word change', async () => {
   expect(audio.pause).toHaveBeenCalled();
   expect(audio.removeAttribute).toHaveBeenCalledWith('src');
   expect(screen.queryByText(/Audio unavailable/)).not.toBeInTheDocument();
+});
+
+it('shows local meaning, part of speech and examples even with an AI result', async () => {
+  vi.spyOn(apiClient, 'explainVocabulary').mockResolvedValue(mockVocabResponse);
+  vi.spyOn(apiClient, 'getDictionaryEntry').mockResolvedValue({
+    ...entry('simplistic'), definition_source: 'Princeton WordNet 3.0 (local)',
+    senses: [{ part_of_speech: 'adjective', meaning: 'Misleadingly simple.', examples: ['A simplistic argument.'], lemma: 'simplistic' }],
+  });
+  render(<BritishInspector {...inspectorProps} selectedWord="simplistic" />);
+  expect(await screen.findByRole('region', { name: 'Local dictionary meanings' })).toHaveTextContent('Misleadingly simple.');
+  expect(screen.getByRole('region', { name: 'Local dictionary meanings' })).toHaveTextContent('adjective');
+  expect(screen.getByText('“A simplistic argument.”')).toBeInTheDocument();
+});
+
+it('prioritises the contextual grammatical use and puts unrelated senses behind a disclosure', async () => {
+  vi.spyOn(apiClient, 'explainVocabulary').mockResolvedValue({ ...mockVocabResponse, term: 'behind', part_of_speech: 'preposition' });
+  vi.spyOn(apiClient, 'getDictionaryEntry').mockResolvedValue({ ...entry('behind'), senses: [
+    { part_of_speech: 'noun', meaning: 'The part of the body you sit on.', examples: [], lemma: 'behind' },
+    { part_of_speech: 'preposition', meaning: 'Responsible for the origin of something.', examples: ['Who is behind these memes?'], lemma: 'behind' },
+  ] });
+  render(<BritishInspector {...inspectorProps} selectedWord="behind" />);
+  expect(await screen.findByText('Responsible for the origin of something.')).toBeVisible();
+  expect(screen.getByText('The part of the body you sit on.')).not.toBeVisible();
+  expect(screen.getByText('Other uses of this word')).toBeVisible();
 });

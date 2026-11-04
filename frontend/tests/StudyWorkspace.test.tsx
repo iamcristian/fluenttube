@@ -349,5 +349,20 @@ describe('StudyPage Workspace Integration', () => {
     expect(screen.queryByText(mockVideoDetail.title)).not.toBeInTheDocument();
     expect(screen.queryByRole('tablist')).not.toBeInTheDocument();
   });
+  it('dismisses study notes outside or with Escape while preserving inside clicks', async () => {
+    vi.spyOn(apiClient, 'getVideo').mockResolvedValue(mockVideoDetail);
+    renderWithQueryClient(<StudyPage videoId={5} onBackToLibrary={vi.fn()} />);
+    const toggle = await screen.findByRole('button', { name: 'Vocabulary & study notes' });
+    fireEvent.click(toggle);
+    const notes = screen.getByRole('region', { name: 'British Study Inspector' });
+    fireEvent.pointerDown(notes);
+    expect(notes).toBeInTheDocument();
+    fireEvent.pointerDown(screen.getByLabelText('Type what you hear'));
+    expect(screen.queryByRole('region', { name: 'British Study Inspector' })).toBeNull();
+    fireEvent.click(toggle);
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(screen.queryByRole('region', { name: 'British Study Inspector' })).toBeNull();
+  });
+
 });
 
