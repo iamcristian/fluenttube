@@ -276,7 +276,9 @@ describe('ShadowingStudio Component & Recording Lifecycle', () => {
       expect(useStudyStore.getState().isRecording).toBe(false);
 
       // Playback UI rendered
-      expect(screen.getByText('Your Shadowing Repetition')).toBeInTheDocument();
+      expect(screen.getByText('Tu grabación')).toBeInTheDocument();
+      expect(screen.getByRole('region', {name:'Original audio diagram'})).toBeInTheDocument();
+      expect(screen.getByLabelText('Playback your recorded speech')).not.toHaveAttribute('controls');
       expect(screen.getByTestId('waveform-card')).toBeInTheDocument();
       expect(screen.getByTestId('waveform-container')).toBeInTheDocument();
       expect(WaveSurfer.create).toHaveBeenCalled();
@@ -410,7 +412,9 @@ describe('ShadowingStudio Component & Recording Lifecycle', () => {
 
       expect(apiClient.evaluateShadowing).toHaveBeenCalledWith(
         102,
-        expect.any(Blob)
+        expect.any(Blob),
+        expect.any(String),
+        '2'
       );
 
       // Verify success banner displays
@@ -448,6 +452,13 @@ describe('ShadowingStudio Component & Recording Lifecycle', () => {
       expect(
         screen.getByText('Media container could not be parsed as valid audio.')
       ).toBeInTheDocument();
+
+      const firstKey = vi.mocked(apiClient.evaluateShadowing).mock.calls[0][2];
+      vi.mocked(apiClient.evaluateShadowing).mockRejectedValueOnce(new Error('Retry failed'));
+      await act(async () => {
+        fireEvent.click(evalBtn);
+      });
+      expect(vi.mocked(apiClient.evaluateShadowing).mock.calls[1][2]).toBe(firstKey);
 
       // Dismiss error
       const dismissBtn = screen.getByRole('button', { name: /Dismiss/i });

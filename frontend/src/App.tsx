@@ -3,6 +3,9 @@ import { QueryClientProvider } from '@tanstack/react-query';
 import { queryClient } from './api/queryClient';
 import { LibraryPage } from './pages/LibraryPage';
 import { StudyPage } from './pages/StudyPage';
+import { PhoneticsLab } from './components/PhoneticsLab';
+import { OpenWordAtlas, type WordReading } from './components/phoneticsNavigation';
+import { useStudyStore } from './stores/useStudyStore';
 import { SettingsPage } from './pages/SettingsPage';
 
 type ViewState =
@@ -26,6 +29,9 @@ function parseHashRoute(): ViewState {
 }
 
 export const AppContent: React.FC = () => {
+  const [labOpen, setLabOpen] = useState(false);
+  const [reading, setReading] = useState<WordReading>();
+  const isRecording = useStudyStore(state => state.isRecording);
   const [currentView, setCurrentView] = useState<ViewState>(parseHashRoute);
 
   useEffect(() => {
@@ -51,15 +57,18 @@ export const AppContent: React.FC = () => {
     setCurrentView({ type: 'settings' });
   };
 
-  if (currentView.type === 'study') {
-    return <StudyPage videoId={currentView.videoId} onBackToLibrary={navigateToLibrary} />;
+  function openLab(word?: WordReading) {
+    if (isRecording) return;
+    document.querySelectorAll('video,audio').forEach(media => (media as HTMLMediaElement).pause());
+    setReading(word); setLabOpen(true);
   }
-
-  if (currentView.type === 'settings') {
-    return <SettingsPage onBackToLibrary={navigateToLibrary} />;
-  }
-
-  return <LibraryPage onSelectVideo={navigateToStudy} onNavigateToSettings={navigateToSettings} />;
+  return <OpenWordAtlas.Provider value={isRecording ? null : openLab}>
+    {currentView.type === 'study' ? <StudyPage videoId={currentView.videoId} onBackToLibrary={navigateToLibrary} />
+      : currentView.type === 'settings' ? <SettingsPage onBackToLibrary={navigateToLibrary} />
+      : <LibraryPage onSelectVideo={navigateToStudy} onNavigateToSettings={navigateToSettings} />}
+    <button disabled={isRecording} className="secondary-button fixed bottom-4 right-4 z-40 shadow-lg" onClick={() => openLab()}>Phonetics Lab</button>
+    {labOpen && <PhoneticsLab reading={reading} onClose={() => setLabOpen(false)} />}
+  </OpenWordAtlas.Provider>;
 };
 
 export const App: React.FC = () => {

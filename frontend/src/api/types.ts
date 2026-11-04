@@ -187,6 +187,9 @@ export interface ShadowingInsertion {
 }
 
 export interface ShadowingResultDTO {
+  evaluation_version?: string;
+  prosody?: ProsodyResult | null;
+
   attempt_id?: number;
   job_id?: string;
   segment_id: number;
@@ -208,6 +211,9 @@ export interface ShadowingResultDTO {
 }
 
 export interface ShadowingAttemptDTO {
+  evaluation_version?: string;
+  prosody?: ProsodyResult | null;
+
   id: number;
   segment_id: number;
   job_id: string;
@@ -261,6 +267,11 @@ export interface TutorExplainRequestDTO {
 export interface DictionaryEntryDTO {
   word: string;
   phonetic_uk: string | null;
+  ipa_options?: string[];
+  ipa_quality?: string;
+  ipa_source?: string | null;
+  ipa_version?: string | null;
+  ipa_notes?: string[];
   part_of_speech: string | null;
   definition_en: string | null;
   definition_es: string | null;
@@ -297,4 +308,26 @@ export interface VocabularyExplainResponseDTO {
   cached: boolean;
   provider: string;
   model: string;
+}
+
+
+export interface AcousticFeatures {
+  clipped_ratio?: number;
+  rms_dbfs?: number;
+  status: string;
+  duration_seconds: number;
+  voiced_ratio: number;
+  pitch_times_seconds: number[];
+  pitch_semitones: (number | null)[];
+  pitch_range_semitones: number | null;
+  pauses: { start_seconds: number; end_seconds: number }[];
+  warning_codes: string[];
+}
+
+export interface ProsodyResult {
+  status: string;
+  normalization_method?: string;
+  reference?: AcousticFeatures;
+  recording?: AcousticFeatures;
+  warning_codes: string[];
 }

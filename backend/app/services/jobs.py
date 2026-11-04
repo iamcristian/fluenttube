@@ -99,6 +99,15 @@ class JobRunner:
                         continue
                     except (AppException, ValueError, KeyError, TypeError):
                         pass
+                if job.kind == "shadowing":
+                    from backend.app.services.audio_service import TEMP_DIR, safe_cleanup
+                    from pathlib import Path
+                    try:
+                        wav = Path(json.loads(job.payload_json)["wav_path"]).resolve()
+                        if wav.parent == TEMP_DIR.resolve() and wav.suffix == ".wav":
+                            safe_cleanup(wav, wav.with_suffix(".reference.wav"))
+                    except (ValueError, KeyError, TypeError):
+                        pass
                 job.status = "failed"
                 job.error_code = "JOB_INTERRUPTED"
                 job.error_message = "Processing stopped when the local app restarted."
@@ -146,6 +155,8 @@ class JobRunner:
         kind: str,
         client_request_id: str,
         payload: Dict[str, Any],
+        request_identity: Optional[Dict[str, Any]] = None,
+        retry_failed: bool = False,
     ) -> Tuple[Job, bool]:
         """
         Idempotently enqueue a new background job.
@@ -155,7 +166,7 @@ class JobRunner:
             AppException(409, "IDEMPOTENCY_CONFLICT") if same client_request_id has different payload.
             AppException(429, "QUEUE_FULL") if queue is at capacity.
         """
-        request_hash = compute_payload_hash(payload)
+        request_hash = compute_payload_hash({"kind": kind, "identity": request_identity}) if request_identity is not None else compute_payload_hash(payload)
 
         with self._lock:
             # 1. Check idempotency in database
@@ -165,7 +176,7 @@ class JobRunner:
                 ).first()
 
                 if existing_job:
-                    if existing_job.request_hash != request_hash:
+                    if existing_job.kind != kind or existing_job.request_hash != request_hash:
                         raise AppException(
                             code="IDEMPOTENCY_CONFLICT",
                             message="A job with this client_request_id already exists with a different payload.",
@@ -173,7 +184,23 @@ class JobRunner:
                             retryable=False,
                             details={"client_request_id": client_request_id},
                         )
-                    # Identical payload retry: return existing job without re-queueing
+                    if retry_failed and existing_job.status == "failed":
+                        if self.queue.full():
+                            raise AppException(code="QUEUE_FULL", message="Job queue is full.", status_code=429, retryable=True)
+                        existing_job.payload_json = json.dumps(payload)
+                        existing_job.status = "queued"
+                        existing_job.stage = "retrying"
+                        existing_job.progress = 0
+                        existing_job.result_json = None
+                        existing_job.error_code = None
+                        existing_job.error_message = None
+                        existing_job.started_at = None
+                        existing_job.finished_at = None
+                        session.add(existing_job)
+                        session.commit()
+                        session.refresh(existing_job)
+                        self.queue.put_nowait(existing_job.id)
+                        return existing_job, True
                     return existing_job, False
 
             # 2. Check queue capacity before writing to DB (prevent orphaned 'queued' records)

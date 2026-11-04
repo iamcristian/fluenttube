@@ -318,8 +318,8 @@ describe('StudyPage Workspace Integration', () => {
     expect(draft).toBeVisible();
     expect(draft).toHaveValue('My unfinished answer');
     fireEvent.click(screen.getByRole('tab', { name: '3. Speak' }));
-    expect(screen.getByRole('heading', { name: 'Say it in your own voice.' })).toBeVisible();
-    expect(screen.getByRole('button', { name: 'Write or reveal the sentence first' })).toBeVisible();
+    expect(screen.queryByText('STEP 03 · FIND YOUR VOICE')).not.toBeInTheDocument();
+    expect(screen.getByRole('region', { name: 'Shadowing studio locked' })).toBeVisible();
   });
 
   it('finishes the requested activity change after the recording is discarded', async () => {

@@ -14,8 +14,7 @@ async def get_british_audio(
     text: str = Query(..., min_length=1, max_length=200, description="Word or phrase to speak in British English"),
 ):
     """
-    Returns studio-grade British neural audio (en-GB-RyanNeural) for any word or sentence.
-    Zero tokens, zero VRAM, cached locally as MP3.
+    Optional online speech synthesis, cached locally. Availability depends on Edge TTS.
     """
     try:
         audio_path = await get_or_create_british_audio(text)

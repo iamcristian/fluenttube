@@ -1,6 +1,7 @@
-import { render, screen, waitFor } from '@testing-library/react';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { render, screen, waitFor, act, fireEvent } from '@testing-library/react';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { BritishInspector } from '../src/components/BritishInspector';
+import { OpenWordAtlas } from '../src/components/phoneticsNavigation';
 import { SegmentDTO, VocabularyExplainResponseDTO } from '../src/api/types';
 import { apiClient } from '../src/api/client';
 
@@ -41,8 +42,9 @@ const mockVocabResponse: VocabularyExplainResponseDTO = {
 
 describe('BritishInspector Component & Contextual Dictionary', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    vi.restoreAllMocks();
   });
+  afterEach(() => vi.unstubAllGlobals());
 
   it('renders default prompt when no word is selected', () => {
     render(
@@ -59,6 +61,7 @@ describe('BritishInspector Component & Contextual Dictionary', () => {
   });
 
   it('triggers 1-click lookup and renders contextual meaning and translation', async () => {
+    const openAtlas = vi.fn();
     const vocabSpy = vi
       .spyOn(apiClient, 'explainVocabulary')
       .mockResolvedValueOnce(mockVocabResponse);
@@ -75,13 +78,13 @@ describe('BritishInspector Component & Contextual Dictionary', () => {
     });
 
     render(
-      <BritishInspector
+      <OpenWordAtlas.Provider value={openAtlas}><BritishInspector
         selectedWord="put up with"
         segment={mockSegment}
         tutorExplanation={null}
         isLoadingTutor={false}
         onRequestTutor={vi.fn()}
-      />
+      /></OpenWordAtlas.Provider>
     );
 
     await waitFor(() => {
@@ -97,6 +100,8 @@ describe('BritishInspector Component & Contextual Dictionary', () => {
     expect(screen.getByText(/En esta frase, significa tolerar un ruido muy molesto/i)).toBeInTheDocument();
     expect(screen.getByText('put up with noise')).toBeInTheDocument();
     expect(screen.getByText('ollama (llama3.2)')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button',{name:'Practicar los sonidos de /pʊt ʌp wɪð/'}));
+    expect(openAtlas).toHaveBeenCalledWith({word:'put up with',ipa:'/pʊt ʌp wɪð/'});
   });
 
   it('shows helpful offline recovery banner when local LLM is offline', async () => {
@@ -128,10 +133,80 @@ describe('BritishInspector Component & Contextual Dictionary', () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByText(/Local AI Offline/i)).toBeInTheDocument();
-      expect(screen.getByText(/ollama run llama3.2/i)).toBeInTheDocument();
+      expect(screen.getByText(/Optional tutor unavailable/i)).toBeInTheDocument();
+      expect(screen.getByText(/Check your tutor settings/i)).toBeInTheDocument();
       // Standard dictionary still renders definition
       expect(screen.getByText('Extremely bad or serious.')).toBeInTheDocument();
     });
   });
+});
+
+
+const inspectorProps = {
+  segment: mockSegment, tutorExplanation: null, isLoadingTutor: false, onRequestTutor: vi.fn(),
+};
+
+function entry(word: string) {
+  return { word, phonetic_uk: null, part_of_speech: null, definition_en: 'Definition of ' + word,
+    definition_es: null, example_en: null, audio_url: '', cached: false };
+}
+
+it('shows dictionary, variants and editorial status while the tutor is pending', async () => {
+  vi.spyOn(apiClient, 'explainVocabulary').mockReturnValue(new Promise(() => {}));
+  vi.spyOn(apiClient, 'getDictionaryEntry').mockResolvedValue({
+    ...entry('read'), ipa_options: ['/riːd/', '/red/'], ipa_source: 'fluenttube-original-gb-seed',
+    ipa_quality: 'editorial_pending_review',
+  });
+  render(<BritishInspector {...inspectorProps} selectedWord="read" />);
+  expect(await screen.findByText('Definition of read')).toBeInTheDocument();
+  expect(screen.getByText('UK /riːd/')).toBeInTheDocument();
+  expect(screen.getByText('UK /red/')).toBeInTheDocument();
+  expect(screen.getByText(/review pending/)).toHaveTextContent('fluenttube-original-gb-seed');
+  expect(screen.getByRole('status')).toHaveTextContent('Loading contextual');
+});
+
+it('preserves apostrophes and offers retry after dictionary failure', async () => {
+  vi.spyOn(apiClient, 'explainVocabulary').mockReturnValue(new Promise(() => {}));
+  const lookup = vi.spyOn(apiClient, 'getDictionaryEntry')
+    .mockRejectedValueOnce(new Error('offline')).mockResolvedValueOnce(entry("can't"));
+  render(<BritishInspector {...inspectorProps} selectedWord={"“can't!”"} />);
+  fireEvent.click(await screen.findByRole('button', { name: 'Retry dictionary' }));
+  expect(await screen.findByText("Definition of can't")).toBeInTheDocument();
+  expect(lookup).toHaveBeenLastCalledWith("can't");
+  expect(screen.getByText(/British IPA unavailable/)).toBeInTheDocument();
+});
+
+it('discards earlier responses even when the student returns to the same word', async () => {
+  vi.spyOn(apiClient, 'explainVocabulary').mockReturnValue(new Promise(() => {}));
+  let resolveOld!: (value: ReturnType<typeof entry>) => void;
+  vi.spyOn(apiClient, 'getDictionaryEntry')
+    .mockReturnValueOnce(new Promise(resolve => { resolveOld = resolve; }))
+    .mockResolvedValueOnce(entry('bird'))
+    .mockResolvedValueOnce(entry('car'));
+  const view = render(<BritishInspector {...inspectorProps} selectedWord="car" />);
+  view.rerender(<BritishInspector {...inspectorProps} selectedWord="bird" />);
+  await screen.findByText('Definition of bird');
+  view.rerender(<BritishInspector {...inspectorProps} selectedWord="car" />);
+  await screen.findByText('Definition of car');
+  await act(async () => { resolveOld({ ...entry('car'), definition_en: 'Stale definition' }); });
+  expect(screen.queryByText('Stale definition')).not.toBeInTheDocument();
+  view.rerender(<BritishInspector {...inspectorProps} selectedWord={null} />);
+  expect(screen.getByText(/Click any word/)).toBeInTheDocument();
+});
+
+it('reports playback rejection and releases audio on word change', async () => {
+  vi.spyOn(apiClient, 'explainVocabulary').mockReturnValue(new Promise(() => {}));
+  vi.spyOn(apiClient, 'getDictionaryEntry').mockImplementation(word => Promise.resolve(entry(word)));
+  const audio = { play: vi.fn().mockRejectedValue(new Error('offline')), pause: vi.fn(),
+    removeAttribute: vi.fn(), load: vi.fn(), onended: null, onerror: null, onplaying: null };
+  vi.stubGlobal('Audio', vi.fn(function () { return audio; }));
+  const view = render(<BritishInspector {...inspectorProps} selectedWord="car" />);
+  fireEvent.click(await screen.findByRole('button', { name: 'Listen to British audio' }));
+  expect(await screen.findByRole('alert')).toHaveTextContent('Audio unavailable');
+  expect(screen.getByRole('button', { name: 'Listen to British audio' })).toHaveAttribute('aria-busy', 'false');
+  view.rerender(<BritishInspector {...inspectorProps} selectedWord="bird" />);
+  await screen.findByText('Definition of bird');
+  expect(audio.pause).toHaveBeenCalled();
+  expect(audio.removeAttribute).toHaveBeenCalledWith('src');
+  expect(screen.queryByText(/Audio unavailable/)).not.toBeInTheDocument();
 });

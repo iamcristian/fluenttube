@@ -10,6 +10,7 @@ import {
   RotateCcw,
 } from 'lucide-react';
 import { apiClient } from '../api/client';
+import { OpenWordAtlas } from './phoneticsNavigation';
 import {
   DictionaryEntryDTO,
   TutorExplanationDTO,
@@ -36,19 +37,31 @@ export const BritishInspector: React.FC<BritishInspectorProps> = ({
   onRequestTutor,
 }) => {
   const [activeTab, setActiveTab] = useState<'word' | 'grammar'>('word');
+  const openWordAtlas = React.useContext(OpenWordAtlas);
   const [dictEntry, setDictEntry] = useState<DictionaryEntryDTO | null>(null);
   const [vocabResult, setVocabResult] = useState<VocabularyExplainResponseDTO | null>(null);
   const [isLoadingDict, setIsLoadingDict] = useState<boolean>(false);
   const [isLoadingVocab, setIsLoadingVocab] = useState<boolean>(false);
   const [vocabError, setVocabError] = useState<string | null>(null);
+  const [dictError, setDictError] = useState<string | null>(null);
+  const [lookupRetry, setLookupRetry] = useState(0);
+  const [audioError, setAudioError] = useState<string | null>(null);
+  const audioTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [isPlayingAudio, setIsPlayingAudio] = useState<boolean>(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
   // Generation guard: prevents older asynchronous responses from overwriting newer word selections (F-12)
-  const activeLookupKeyRef = useRef<string>('');
+  const activeLookupKeyRef = useRef<symbol | null>(null);
 
   // 1-Click Contextual Dictionary Lookup (Section 6, F-05, F-12)
   useEffect(() => {
+    const lookupKey = Symbol('word lookup');
+    activeLookupKeyRef.current = lookupKey;
+    setIsLoadingDict(false);
+    setIsLoadingVocab(false);
+    setDictError(null);
+    setAudioError(null);
+    setIsPlayingAudio(false);
     if (!selectedWord) {
       setVocabResult(null);
       setDictEntry(null);
@@ -57,9 +70,7 @@ export const BritishInspector: React.FC<BritishInspectorProps> = ({
     }
 
     const term = selectedWord.trim();
-    const segmentId = segment?.id ?? 0;
-    const lookupKey = `${segmentId}_${term.toLowerCase()}`;
-    activeLookupKeyRef.current = lookupKey;
+
 
     setActiveTab('word');
     setIsLoadingDict(true);
@@ -69,7 +80,7 @@ export const BritishInspector: React.FC<BritishInspectorProps> = ({
     setDictEntry(null);
 
     // 1. Fetch UK IPA & Dictionary definition
-    const cleanWord = term.replace(/[.,\/#!$%\^&\*;:{}=\-_`~()?"']/g, '').trim().toLowerCase();
+    const cleanWord = term.replace(/^[^\p{L}]+|[^\p{L}]+$/gu, '').trim().toLowerCase();
     apiClient
       .getDictionaryEntry(cleanWord)
       .then((entry) => {
@@ -77,8 +88,10 @@ export const BritishInspector: React.FC<BritishInspectorProps> = ({
           setDictEntry(entry);
         }
       })
-      .catch((err) => {
-        console.warn('Standard dictionary lookup unavailable:', err);
+      .catch(() => {
+        if (activeLookupKeyRef.current === lookupKey) {
+          setDictError('Dictionary unavailable. Try this word again.');
+        }
       })
       .finally(() => {
         if (activeLookupKeyRef.current === lookupKey) {
@@ -109,9 +122,7 @@ export const BritishInspector: React.FC<BritishInspectorProps> = ({
               err?.statusCode === 503 ||
               err?.statusCode === 504
             ) {
-              setVocabError(
-                "Local LLM offline. Run 'ollama run llama3.2' in terminal to enable instant contextual definitions."
-              );
+              setVocabError('The optional tutor is unavailable. Dictionary entries remain available. Check your tutor settings and try again.');
             } else {
               setVocabError(err?.message || 'Contextual AI explanation unavailable.');
             }
@@ -125,13 +136,28 @@ export const BritishInspector: React.FC<BritishInspectorProps> = ({
     } else {
       setIsLoadingVocab(false);
     }
-  }, [selectedWord, segment]);
+    return () => {
+      activeLookupKeyRef.current = null;
+    };
+  }, [selectedWord, segment?.id, lookupRetry]);
+
+  useEffect(() => {
+    return () => {
+      if (audioTimeoutRef.current) clearTimeout(audioTimeoutRef.current);
+      const audio = audioRef.current;
+      audioRef.current = null;
+      if (audio) {
+        audio.pause();
+        audio.removeAttribute('src');
+        audio.load();
+      }
+    };
+  }, [selectedWord, segment?.id]);
 
   const handleRetryVocab = () => {
     if (!selectedWord || !segment) return;
     const term = selectedWord.trim();
-    const lookupKey = `${segment.id}_${term.toLowerCase()}`;
-    activeLookupKeyRef.current = lookupKey;
+    const lookupKey = activeLookupKeyRef.current;
     setIsLoadingVocab(true);
     setVocabError(null);
     apiClient
@@ -166,21 +192,36 @@ export const BritishInspector: React.FC<BritishInspectorProps> = ({
 
   const handlePlayAudio = (phrase: string) => {
     if (!phrase) return;
+    if (audioTimeoutRef.current) clearTimeout(audioTimeoutRef.current);
+    if (audioRef.current) audioRef.current.pause();
+    setAudioError(null);
     setIsPlayingAudio(true);
-    const audioUrl = apiClient.getBritishAudioUrl(phrase);
-
-    if (audioRef.current) {
-      audioRef.current.pause();
-    }
-    const audio = new Audio(audioUrl);
+    const audio = new Audio(apiClient.getBritishAudioUrl(phrase));
     audioRef.current = audio;
-    audio.play().catch((err) => console.error('Audio play error:', err));
-    audio.onended = () => setIsPlayingAudio(false);
-    audio.onerror = () => setIsPlayingAudio(false);
+    const finish = (failed: boolean) => {
+      if (audioRef.current !== audio) return;
+      if (audioTimeoutRef.current) clearTimeout(audioTimeoutRef.current);
+      audioTimeoutRef.current = null;
+      setIsPlayingAudio(false);
+      if (failed) {
+        audio.pause();
+        setAudioError('Audio unavailable. Check your connection and try Listen again.');
+      }
+    };
+    audio.onended = () => finish(false);
+    audio.onerror = () => finish(true);
+    audio.onplaying = () => {
+      if (audioRef.current === audio && audioTimeoutRef.current) {
+        clearTimeout(audioTimeoutRef.current);
+        audioTimeoutRef.current = null;
+      }
+    };
+    audioTimeoutRef.current = setTimeout(() => finish(true), 25000);
+    audio.play().catch(() => finish(true));
   };
 
-  const isLoading = isLoadingDict || isLoadingVocab;
-  const currentTerm = vocabResult?.term || selectedWord;
+  const isLoading = isLoadingDict;
+  const currentTerm = selectedWord;
 
   return (
     <div className="h-full flex flex-col bg-surface border-l border-border select-none">
@@ -219,7 +260,7 @@ export const BritishInspector: React.FC<BritishInspectorProps> = ({
             {isLoading ? (
               <div className="py-16 flex flex-col items-center justify-center text-text-muted space-y-3">
                 <Loader2 className="w-6 h-6 animate-spin text-accent" />
-                <p className="text-xs font-mono">Analyzing with Local LLM & UK Phonetics...</p>
+                <p className="text-xs font-mono">Looking up this word...</p>
               </div>
             ) : selectedWord ? (
               <div className="space-y-4 animate-in fade-in duration-150">
@@ -236,6 +277,9 @@ export const BritishInspector: React.FC<BritishInspectorProps> = ({
                             UK {dictEntry.phonetic_uk}
                           </span>
                         )}
+                        {!dictEntry?.phonetic_uk && dictEntry?.ipa_options?.map((ipa) => (
+                          <span key={ipa} className="text-xs font-mono">UK {ipa}</span>
+                        ))}
                         {(vocabResult?.part_of_speech || dictEntry?.part_of_speech) && (
                           <span className="text-[10px] uppercase font-bold tracking-wider px-1.5 py-0.5 rounded bg-accent/15 text-accent border border-accent/20">
                             {vocabResult?.part_of_speech || dictEntry?.part_of_speech}
@@ -247,11 +291,27 @@ export const BritishInspector: React.FC<BritishInspectorProps> = ({
                           </span>
                         )}
                       </div>
+                      {dictEntry && !dictEntry.phonetic_uk && !dictEntry.ipa_options?.length && (
+                        <p className="text-xs text-text-muted mt-1">British IPA unavailable for this word.</p>
+                      )}
+                      {openWordAtlas && dictEntry && (dictEntry.phonetic_uk ? [dictEntry.phonetic_uk] : dictEntry.ipa_options || []).map(ipa =>
+                        <button key={ipa} className="quiet-button" onClick={() => openWordAtlas({word: currentTerm || selectedWord, ipa})}>Practicar los sonidos de {ipa}</button>)}
+                      {(dictEntry?.phonetic_uk || Boolean(dictEntry?.ipa_options?.length)) && (
+                        <p className="text-xs text-text-muted mt-1">
+                          {dictEntry?.ipa_quality === 'editorial_pending_review' ? 'Editorial transcription · review pending' : 'Pronunciation source'}
+                          {' · '}{dictEntry?.ipa_source || 'Unverified source'}
+                        </p>
+                      )}
+                      {dictEntry?.ipa_notes?.map((note) => (
+                        <p key={note} className="text-xs text-text-muted mt-1">{note}</p>
+                      ))}
                     </div>
                     <button
                       type="button"
                       onClick={() => handlePlayAudio(currentTerm || '')}
-                      title="Listen with British Neural Voice (en-GB-Ryan)"
+                      aria-label={isPlayingAudio ? "Replay British audio" : "Listen to British audio"}
+                      aria-busy={isPlayingAudio}
+                      title="British synthetic audio · online service"
                       className={`p-2.5 rounded-full transition-all shrink-0 ${
                         isPlayingAudio
                           ? 'bg-accent text-white scale-110 shadow-lg shadow-accent/40'
@@ -262,13 +322,21 @@ export const BritishInspector: React.FC<BritishInspectorProps> = ({
                     </button>
                   </div>
 
+                  {audioError && <p role="alert" className="text-xs text-amber-300 mt-2">{audioError}</p>}
+                  {dictError && (
+                    <div role="alert" className="text-xs text-amber-300 mt-2">
+                      <p>{dictError}</p>
+                      <button type="button" onClick={() => setLookupRetry(value => value + 1)}>Retry dictionary</button>
+                    </div>
+                  )}
+                  {isLoadingVocab && <p role="status" className="text-xs text-text-muted mt-2">Loading contextual explanation…</p>}
                   {vocabResult?.provider && (
                     <div className="mt-2.5 pt-2 border-t border-border/40 flex items-center justify-between text-[10px] text-text-muted">
                       <span className="flex items-center gap-1 text-slate-400">
                         <Cpu className="w-3 h-3 text-accent" />
                         Provider: <strong className="text-slate-300 font-mono">{vocabResult.provider} ({vocabResult.model})</strong>
                       </span>
-                      <span>British RP Voice</span>
+                      <span>AI explanation</span>
                     </div>
                   )}
                 </div>
@@ -278,11 +346,7 @@ export const BritishInspector: React.FC<BritishInspectorProps> = ({
                   <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs flex items-start gap-2.5">
                     <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-amber-400" />
                     <div className="flex-1">
-                      <p className="font-semibold text-white">
-                        {vocabError.toLowerCase().includes("offline") || vocabError.toLowerCase().includes("ollama")
-                          ? "Local AI Offline"
-                          : "Tutor Vocabulario"}
-                      </p>
+                      <p className="font-semibold text-white">Optional tutor unavailable</p>
                       <p className="text-[11px] text-amber-200/90 mt-0.5 leading-relaxed">
                         {vocabError}
                       </p>

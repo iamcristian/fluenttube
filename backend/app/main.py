@@ -118,3 +118,6 @@ app.include_router(vocabulary_router, prefix="/api")
 app.include_router(vocabulary_router)
 app.include_router(british_router)
 
+
+from backend.app.routers.phonetics import router as phonetics_router
+app.include_router(phonetics_router, prefix="/api")

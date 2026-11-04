@@ -7,6 +7,21 @@ from backend.app.main import app
 from backend.app.models import DictionaryCache
 
 
+@pytest.fixture(autouse=True)
+def isolated_dictionary_sources(monkeypatch, tmp_path):
+    """Exercise route/cache contracts without relying on live network or old TTS files."""
+    from backend.app.routers import british
+    from backend.app.services import british_service
+    async def dictionary(word):
+        return {"meanings": [{"partOfSpeech": "noun", "definitions": [{"definition": "test definition"}]}]}
+    async def audio(text):
+        path = tmp_path / "audio.mp3"
+        path.write_bytes(b"fixture" * 100)
+        return path
+    monkeypatch.setattr(british_service, "fetch_free_dictionary", dictionary)
+    monkeypatch.setattr(british, "get_or_create_british_audio", audio)
+
+
 @pytest.fixture
 def test_db(tmp_path):
     test_db_path = tmp_path / "british_test.db"

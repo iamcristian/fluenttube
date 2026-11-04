@@ -12,9 +12,12 @@ import {
   Pause,
   CheckCircle2,
 } from 'lucide-react';
+import { Contour } from './ProsodyPanel';
+import { OriginalWaveform } from './OriginalWaveform';
 import WaveSurfer from 'wavesurfer.js';
 import { SegmentDTO, ShadowingResultDTO } from '../api/types';
 import { useRecorder } from '../hooks/useRecorder';
+import { MicrophoneControls } from './MicrophoneControls';
 import { apiClient, ApiError } from '../api/client';
 import { useJob } from '../hooks/useJob';
 import { useStudyStore } from '../stores/useStudyStore';
@@ -54,8 +57,9 @@ export const ShadowingStudio: React.FC<ShadowingStudioProps> = ({
   const isRetrying = segmentId != null && retryingSegmentId === segmentId;
   const isUnlocked = Boolean((segment?.completed || segment?.revealed) && !isRetrying);
 
-  const currentEval = segmentId != null ? shadowingResults[segmentId] || null : null;
+  const storedEval = segmentId != null ? shadowingResults[segmentId] || null : null;
   const activeJobId = segmentId != null ? shadowingJobs[segmentId] || null : null;
+  const recorder = useRecorder({maxDurationSeconds:30,onBeforeStart:()=>{wavesurferRef.current?.pause?.();onBeforeRecord?.();}});
 
   const {
     state,
@@ -67,10 +71,9 @@ export const ShadowingStudio: React.FC<ShadowingStudioProps> = ({
     startRecording,
     stopRecording,
     resetRecording: baseResetRecording,
-  } = useRecorder({
-    maxDurationSeconds: 30,
-    onBeforeStart: onBeforeRecord,
-  });
+  } = recorder;
+  const [evaluatedBlob,setEvaluatedBlob] = useState<Blob|null>(null);
+  const currentEval = !audioBlob || evaluatedBlob===audioBlob ? storedEval : null;
 
   // Reset recording state when switching segments so audio from A is never evaluated on B (F-06)
   const prevSegmentIdRef = useRef<number | null>(segmentId);
@@ -83,6 +86,7 @@ export const ShadowingStudio: React.FC<ShadowingStudioProps> = ({
 
   // WaveSurfer state & refs
   const waveformContainerRef = useRef<HTMLDivElement | null>(null);
+  const recordedAudioRef = useRef<HTMLAudioElement>(null);
   const wavesurferRef = useRef<WaveSurfer | null>(null);
   const [isPlayingWave, setIsPlayingWave] = useState(false);
 
@@ -99,6 +103,7 @@ export const ShadowingStudio: React.FC<ShadowingStudioProps> = ({
       if (segmentId != null) {
         const evalResult = result as unknown as ShadowingResultDTO;
         setShadowingResult(segmentId, evalResult);
+        setEvaluatedBlob(captureRequestRef.current?.blob || null);
         setShadowingJob(segmentId, null);
         if (evalResult.overall_score != null && segment) {
           updateSegment(segmentId, {
@@ -129,6 +134,8 @@ export const ShadowingStudio: React.FC<ShadowingStudioProps> = ({
         if (isMounted && resp.items.length > 0 && !shadowingResults[segmentId]) {
           const latest = resp.items[0];
           setShadowingResult(segmentId, {
+            evaluation_version: latest.evaluation_version,
+            prosody: latest.prosody,
             attempt_id: latest.id,
             job_id: latest.job_id,
             segment_id: latest.segment_id,
@@ -182,13 +189,15 @@ export const ShadowingStudio: React.FC<ShadowingStudioProps> = ({
         barWidth: 2,
         barGap: 1,
         barRadius: 2,
-        height: 48,
+        height: 32,
         url: audioUrl,
+        media: recordedAudioRef.current || undefined,
       });
 
       ws.on('play', () => setIsPlayingWave(true));
       ws.on('pause', () => setIsPlayingWave(false));
       ws.on('finish', () => setIsPlayingWave(false));
+      ws.on('error', () => setEvalError('La forma de onda no se pudo cargar. El botón de reproducción permite escuchar la toma.'));
 
       wavesurferRef.current = ws;
     } catch (err) {
@@ -212,12 +221,17 @@ export const ShadowingStudio: React.FC<ShadowingStudioProps> = ({
   const toggleWavePlayback = useCallback(() => {
     if (wavesurferRef.current) {
       try {
-        wavesurferRef.current.playPause();
+        void Promise.resolve(wavesurferRef.current.playPause()).catch(()=>{void recordedAudioRef.current?.play().catch(()=>setEvalError('No se pudo reproducir la toma. Graba de nuevo.'));});
       } catch (err) {
         console.warn('Error during WaveSurfer playPause:', err);
       }
+    } else if(recordedAudioRef.current) {
+      const audio=recordedAudioRef.current;
+      if(audio.paused)void audio.play().catch(()=>setEvalError('No se pudo reproducir la toma. Graba de nuevo.'));else audio.pause();
     }
   }, []);
+
+  const captureRequestRef = useRef<{ blob: Blob; segmentId: number; key: string } | null>(null);
 
   // Handle Submit Speech for Evaluation
   const handleEvaluate = useCallback(async () => {
@@ -227,7 +241,10 @@ export const ShadowingStudio: React.FC<ShadowingStudioProps> = ({
     setIsSubmittingEval(true);
 
     try {
-      const res = await apiClient.evaluateShadowing(segment.id, audioBlob);
+      if (captureRequestRef.current?.blob !== audioBlob || captureRequestRef.current.segmentId !== segment.id) {
+        captureRequestRef.current = { blob: audioBlob, segmentId: segment.id, key: crypto.randomUUID() };
+      }
+      const res = await apiClient.evaluateShadowing(segment.id, audioBlob, captureRequestRef.current.key, '2');
       setShadowingJob(segment.id, res.job_id);
     } catch (err: unknown) {
       setIsSubmittingEval(false);
@@ -245,7 +262,7 @@ export const ShadowingStudio: React.FC<ShadowingStudioProps> = ({
   return (
     <div
       aria-label="Shadowing Studio"
-      className="bg-surface rounded-panel border border-border p-5 shadow-lg space-y-4"
+      className="shadow-studio bg-surface rounded-panel border border-border p-5 shadow-lg space-y-4"
     >
       {/* Panel Header */}
       <div className="flex items-center justify-between border-b border-border/70 pb-3">
@@ -287,7 +304,8 @@ export const ShadowingStudio: React.FC<ShadowingStudioProps> = ({
         </div>
       ) : (
         /* Unlocked State (Section 8.2) */
-        <div className="space-y-4">
+        <div className="shadow-stage space-y-4">
+          <div className="shadow-capture space-y-3">
           {/* Target Sentence Quote */}
           <div className="p-3.5 rounded-control bg-surface-raised border border-border/80">
             <span className="text-[11px] font-mono text-accent uppercase font-bold block mb-1">
@@ -299,6 +317,12 @@ export const ShadowingStudio: React.FC<ShadowingStudioProps> = ({
           </div>
 
           {/* Recorder Error Message */}
+          <MicrophoneControls recorder={recorder} compact/>
+          {segmentId != null && <OriginalWaveform segmentId={segmentId} features={currentEval?.prosody?.reference}
+            paused={isPlayingWave || isRecording || state==='requesting_permission' || state==='stopping'}
+            disabled={isRecording || state==='requesting_permission' || state==='stopping'}
+            onPlay={()=>{wavesurferRef.current?.pause?.();recordedAudioRef.current?.pause();}}
+            onFallback={onListenOriginal}/>}
           {errorMessage && (
             <div
               role="alert"
@@ -418,7 +442,7 @@ export const ShadowingStudio: React.FC<ShadowingStudioProps> = ({
               className="p-4 rounded-control bg-surface-raised border border-border/90 space-y-3.5"
             >
               <div className="flex items-center justify-between text-xs">
-                <span className="font-semibold text-white">Your Shadowing Repetition</span>
+                <span className="font-semibold text-white">Tu grabación</span>
                 <span className="font-mono text-text-secondary text-[11px]">
                   Duration: {durationSeconds.toFixed(1)}s / 30.0s
                 </span>
@@ -450,17 +474,21 @@ export const ShadowingStudio: React.FC<ShadowingStudioProps> = ({
                 <div
                   ref={waveformContainerRef}
                   data-testid="waveform-container"
-                  className="w-full min-h-[48px] overflow-hidden"
+                  className="w-full min-h-[32px] overflow-hidden"
                 />
               </div>
 
               {/* Native Accessible Audio Player fallback */}
               <audio
+                ref={recordedAudioRef}
                 src={audioUrl}
-                controls
-                className="w-full h-8 rounded focus:outline-none focus:ring-2 focus:ring-accent"
+                hidden
+                onPlay={()=>setIsPlayingWave(true)}
+                onPause={()=>setIsPlayingWave(false)}
+                onEnded={()=>setIsPlayingWave(false)}
                 aria-label="Playback your recorded speech"
               />
+              {currentEval?.prosody?.recording && <Contour features={currentEval.prosody.recording} label="Tu grabación"/>}
 
               {/* Evaluation Error Banner */}
               {evalError && (
@@ -570,6 +598,15 @@ export const ShadowingStudio: React.FC<ShadowingStudioProps> = ({
           )}
 
           {/* T19 Full Evaluation Feedback & Score Breakdown Section */}
+          {!audioUrl && currentEval?.prosody && <div className="space-y-3" aria-label="Previous recording analysis">
+            <p className="text-xs text-text-muted">Última toma evaluada · audio no conservado</p>
+            {currentEval.prosody.recording && <Contour features={currentEval.prosody.recording} label="Tu grabación"/>}
+          </div>}
+          </div>
+          <div className="shadow-feedback space-y-3" aria-label="Evaluation details">
+          <h4 className="text-xs font-semibold uppercase text-text-secondary">Evaluación</h4>
+          {!currentEval && <p className="text-sm text-text-secondary">Graba una toma y pulsa Evaluate speech para comparar tus resultados.</p>}
+          {currentEval?.prosody && <p className="text-xs text-text-muted">Tono relativo a la mediana de cada voz · escalas compartidas, duración independiente. Sigue las subidas y bajadas en tu registro cómodo. Análisis experimental.</p>}
           {currentEval && currentEval.status && (
             <div
               role="region"
@@ -754,11 +791,12 @@ export const ShadowingStudio: React.FC<ShadowingStudioProps> = ({
               )}
             </div>
           )}
+          </div>
         </div>
       )}
 
       {/* Visible Disclaimer (Section 8.2) */}
-      <p className="text-[11px] text-slate-500 leading-normal border-t border-border/50 pt-3">
+      <p className="shadow-footnote text-[11px] text-slate-500 leading-normal border-t border-border/50 pt-3">
         Practice feedback estimated from speech recognition; it is not a phonetic pronunciation assessment.
       </p>
     </div>

@@ -22,4 +22,5 @@ google-genai>=1.0.0,<3.0.0
 
 # Free British TTS Audio & IPA Phonetics
 edge-tts>=7.0.0,<8.0.0
-eng-to-ipa>=0.0.2
+alembic==1.20.1
+praat-parselmouth==0.4.7

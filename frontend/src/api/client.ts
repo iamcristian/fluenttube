@@ -98,6 +98,7 @@ export const apiClient = {
     return request<IngestResponseDTO>('/videos/upload', { method: 'POST', body });
   },
   getVideoMediaUrl: (videoId: number): string => `${API_BASE_URL}/videos/${videoId}/media?playback=2`,
+  getReferenceAudioUrl: (segmentId: number): string => `${API_BASE_URL}/segments/${segmentId}/reference-audio`,
   getHealth: (): Promise<HealthResponse> => request<HealthResponse>('/health'),
   getJob: (jobId: string): Promise<JobDTO> => request<JobDTO>(`/jobs/${jobId}`),
   resumeLocalJob: (jobId: string): Promise<JobDTO> => request<JobDTO>(`/jobs/${jobId}/resume`, { method: 'POST' }),
@@ -136,7 +137,8 @@ export const apiClient = {
   evaluateShadowing: (
     segmentId: number,
     audioBlob: Blob,
-    clientRequestId?: string
+    clientRequestId?: string,
+    evaluationVersion: '1' | '2' = '1'
   ): Promise<import('./types').ShadowingEvaluateResponseDTO> => {
     const formData = new FormData();
     const type = audioBlob.type || '';
@@ -149,6 +151,7 @@ export const apiClient = {
       : 'webm';
     formData.append('audio_file', audioBlob, `shadowing_capture.${extension}`);
     formData.append('segment_id', segmentId.toString());
+    formData.append('evaluation_version', evaluationVersion);
     formData.append(
       'client_request_id',
       clientRequestId || (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `req_${Date.now()}`)
@@ -189,3 +192,5 @@ export const apiClient = {
 };
 
 
+
+export const phoneticsAudioUrl = (path: string) => API_BASE_URL + "/phonetics" + path;

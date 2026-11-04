@@ -164,6 +164,10 @@ def transcribe_local_video(path: Path, duration: float, update_progress: Callabl
                 audio_path = scratch
             result = whisper_engine.transcribe(audio_path, language="en")
             for segment in segment_asr_result(result, max_duration=part_duration):
+                from backend.app.services.reference_audio import words_in_window
+                segment.reference_words = words_in_window(
+                    result.get("words", []), segment.start_seconds, segment.end_seconds, offset
+                )
                 segment.start_seconds = round(segment.start_seconds + offset, 3)
                 segment.end_seconds = round(segment.end_seconds + offset, 3)
                 segment.position = len(segments)
@@ -196,7 +200,10 @@ def handle_local_ingest_job(job_id: str, payload: dict, update_progress: Callabl
         session.flush()
         session.add(LocalVideoMedia(video_id=video.id, file_relative_path=payload["file_relative_path"]))
         for item in segments:
-            session.add(Segment(video_id=video.id, position=item.position, start_seconds=item.start_seconds, end_seconds=item.end_seconds, text=item.text, timing_quality=item.timing_quality))
+            session.add(Segment(video_id=video.id, position=item.position, start_seconds=item.start_seconds, end_seconds=item.end_seconds, text=item.text, timing_quality=item.timing_quality,
+                reference_words_json=json.dumps(item.reference_words) if item.reference_words else None,
+                reference_words_version="import-asr-v1" if item.reference_words else None,
+                reference_speech_seconds=(item.reference_words[-1]["end"] - item.reference_words[0]["start"]) if item.reference_words else None))
         session.commit()
         result = {"video_id": video.id, "segment_count": len(segments), "transcription_source": "local_asr"}
     safe_cleanup(path.with_suffix(".transcript.json"))

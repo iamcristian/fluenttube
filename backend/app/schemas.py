@@ -186,6 +186,10 @@ class ShadowingEvaluateResponseDTO(BaseModel):
     status: str = "queued"
 
 class ShadowingAttemptDTO(BaseModel):
+    evaluation_version: str = "1"
+    prosody: Optional[dict] = None
+    evaluation_version: str = "1"
+    prosody: Optional[dict] = None
     id: int
     segment_id: int
     job_id: str
@@ -246,6 +250,16 @@ class TutorExplainRequestDTO(BaseModel):
 
 class DictionaryEntryDTO(BaseModel):
     word: str
+    ipa_options: List[str] = Field(default_factory=list)
+    ipa_quality: str = "unavailable"
+    ipa_source: Optional[str] = None
+    ipa_version: Optional[str] = None
+    ipa_notes: List[str] = Field(default_factory=list)
+    ipa_options: List[str] = Field(default_factory=list)
+    ipa_quality: str = "unavailable"
+    ipa_source: Optional[str] = None
+    ipa_version: Optional[str] = None
+    ipa_notes: List[str] = Field(default_factory=list)
     phonetic_uk: Optional[str] = None
     part_of_speech: Optional[str] = None
     definition_en: Optional[str] = None

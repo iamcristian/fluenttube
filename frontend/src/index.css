@@ -51,3 +51,78 @@ body {
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; scroll-behavior: auto !important; }
 }
+
+.articulation-plate { background: #101e27; border: 1px solid #3c535d; border-radius: 12px; overflow: hidden; }
+.articulation-plate figcaption { padding: .7rem 1rem; background: #172b33; display:flex; align-items:center; justify-content:space-between; color:#a6c7c7; font:600 10px/1.2 system-ui; letter-spacing:.17em; }
+.articulation-plate figcaption strong { color:#8af2d9; font:500 26px/1.2 Georgia,serif; }
+.articulation-plate svg { width:100%; display:block; }
+.plate-kicker { fill:#a7c4c5; font:600 9px system-ui; letter-spacing:1.4px; }
+.plate-label { fill:#c2d6d8; font:11px system-ui; }
+.notation-plate { display:flex; flex-wrap:wrap; padding:1.5rem .7rem; gap:5px; }
+.notation-plate div { display:grid; gap:.7rem; padding:.5rem; border-bottom:2px solid #526872; }
+.notation-plate small { font:10px system-ui; color:#b9ced4; }
+.notation-plate b { font:26px Georgia,serif; }
+.notation-plate .notation-focus { border-color:#76e3cc; background:#213a40; }
+.notation-plate mark { background:transparent; color:#76e3cc; }
+
+.microphone-compact { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+.microphone-compact > label:first-child { display:flex; align-items:center; gap:8px; flex:1; min-width:0; }
+.microphone-compact select { margin:0; padding:4px; min-width:0; }
+.microphone-compact .quiet-button { padding:4px; }
+.microphone-compact > p, .microphone-compact > label:not(:first-child) { flex-basis:100%; }
+
+/* Desktop workspace: video and the active task share one viewport. */
+@media (min-width:1024px) and (min-height:600px) {
+  .study-shell { height:100dvh; min-height:0; overflow:hidden; }
+  .study-shell .study-header { max-width:none; height:48px; padding:0 16px; }
+  .study-shell .study-main { min-height:0; padding:10px 12px; overflow:hidden; }
+  .study-shell .study-grid { height:100%; min-height:0; grid-template-columns:minmax(300px, .72fr) minmax(0,1.65fr); gap:12px; }
+  .study-shell .study-media,.study-shell .study-work { grid-column:auto; height:100%; min-height:0; gap:10px; }
+  .study-media > *, .study-work > * { margin-top:0!important; }
+  .study-media { overflow:hidden; }
+  .study-sentences { padding:10px; min-height:0; overflow:hidden; }
+  .study-sentences > div:last-child { min-height:0; overflow:auto; }
+  .study-sentences [role=list] { max-height:none; }
+  .study-navigation { padding:8px 10px; flex-shrink:0; display:flex; align-items:center; gap:10px; }
+  .study-navigation > div:first-child { flex:1; border:0; padding:0; gap:6px; }
+  .study-navigation [role=tablist] { width:auto; flex:1; }
+  .study-navigation .study-step { padding:8px; }
+  .study-navigation > div:last-child { margin:0; padding:4px 8px; border:0; background:transparent; }
+  .study-navigation > div:last-child > div { display:none; }
+  #practice-panel { flex:1; min-height:0; overflow:auto; }
+  #practice-panel > div { margin-top:0; }
+  .study-shell[data-activity=shadow] #practice-panel { overflow:hidden; }
+  #practice-panel > div:not([hidden]):has(.shadow-studio) { height:100%; }
+  .shadow-studio { height:100%; min-height:0; padding:10px; display:flex; flex-direction:column; gap:8px; }
+  .shadow-studio > * { margin-top:0!important; }
+  .shadow-studio > div:first-child { padding-bottom:6px; flex-shrink:0; }
+  .shadow-stage { flex:1; min-height:0; display:grid; grid-template-columns:minmax(0,1.2fr) minmax(230px,.85fr); gap:12px; }
+  .shadow-capture,.shadow-feedback { min-height:0; min-width:0; overflow:auto; padding-right:4px; }
+  .shadow-stage > * { margin-top:0!important; }
+  .shadow-capture > * { margin-top:8px; }
+  .shadow-capture > * + * { margin-top:6px!important; }
+  .shadow-capture > :first-child { margin-top:0; padding:8px; }
+  .shadow-capture > :first-child > span { display:none; }
+  .shadow-capture .microphone-compact { padding:4px 8px; }
+  .shadow-capture .microphone-compact button { min-height:28px!important; }
+  .shadow-capture [aria-label="Recorded audio playback"] { padding:8px; }
+  .shadow-capture .pitch-contour svg { height:clamp(44px,7dvh,76px); }
+  .shadow-capture .pitch-contour { font-size:11px; line-height:1.3; }
+  .shadow-capture .pitch-contour > p { display:none; }
+  .shadow-capture .pitch-contour svg > text { display:none; }
+  .shadow-capture .pitch-contour > * { margin-top:3px; }
+  .shadow-feedback [aria-label="Speech evaluation feedback"] { padding:8px; }
+  .shadow-feedback [aria-label="Speech evaluation feedback"] > div > div:first-child { gap:6px; }
+  .shadow-feedback .text-2xl { font-size:22px; }
+  .shadow-feedback .sm\:grid-cols-3 { grid-template-columns:repeat(3,minmax(0,1fr)); }
+  .shadow-feedback .sm\:grid-cols-3 > div { padding:8px 3px; }
+  .shadow-feedback .sm\:grid-cols-3 > div > p { display:none; }
+  .shadow-footnote { font-size:10px; padding-top:5px; flex-shrink:0; }
+  .study-work > div:last-child:not(#practice-panel) { flex-shrink:0; }
+  .study-work > div:last-child:not(#practice-panel) > span { display:none; }
+  .study-work > div:last-child:not(#practice-panel) { justify-content:flex-end; }
+  .study-work > div:last-child:not(#practice-panel) button { padding:4px 10px; }
+  .shadow-capture [aria-label="Original audio diagram"] { padding:6px; }
+  .shadow-capture [aria-label="Original audio diagram"] > div:has(> wave) { min-height:32px; }
+  .study-inspector { position:fixed; z-index:40; top:60px; right:16px; bottom:20px; width:min(430px,90vw); overflow:auto; box-shadow:0 12px 60px #0009; }
+}

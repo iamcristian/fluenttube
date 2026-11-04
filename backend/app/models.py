@@ -43,6 +43,15 @@ class LocalVideoMedia(SQLModel, table=True):
     file_relative_path: str = Field(unique=True)
 
 
+class ReferenceAnalysisCache(SQLModel, table=True):
+    __tablename__ = "reference_analysis_cache"
+    segment_id: int = Field(primary_key=True, foreign_key="segment.id", ondelete="CASCADE")
+    source_signature: str
+    features_json: str
+    words_json: Optional[str] = None
+    words_version: Optional[str] = None
+
+
 class Segment(SQLModel, table=True):
     __tablename__ = "segment"
     __table_args__ = (
@@ -59,6 +68,8 @@ class Segment(SQLModel, table=True):
         nullable=False,
         description="caption | word | coarse",
     )
+    reference_words_json: Optional[str] = Field(default=None)
+    reference_words_version: Optional[str] = Field(default=None)
     reference_speech_seconds: Optional[float] = Field(default=None, gt=0)
     completed_at: Optional[datetime] = Field(default=None)
     revealed_at: Optional[datetime] = Field(default=None)
@@ -127,6 +138,8 @@ class ShadowingAttempt(SQLModel, table=True):
     job_id: str = Field(unique=True, foreign_key="job.id", index=True, nullable=False)
     segment_id: int = Field(foreign_key="segment.id", index=True, nullable=False)
     status: str = Field(nullable=False, description="scored | unscorable")
+    evaluation_version: str = Field(default="1")
+    prosody_json: Optional[str] = Field(default=None)
     recognized_text: str = Field(nullable=False)
     word_match_score: Optional[float] = Field(default=None)
     timing_similarity_score: Optional[float] = Field(default=None)
@@ -228,3 +241,20 @@ class DictionaryCache(SQLModel, table=True):
     example_en: Optional[str] = Field(default=None)
     audio_relative_path: Optional[str] = Field(default=None)
     created_at: datetime = Field(default_factory=utc_now, nullable=False)
+
+
+class PhoneticsChallenge(SQLModel, table=True):
+    __tablename__ = "phonetics_challenge"
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()), primary_key=True)
+    lesson_id: str
+    target_id: str
+    created_at: datetime = Field(default_factory=utc_now)
+
+
+class PhoneticsReview(SQLModel, table=True):
+    __tablename__ = "phonetics_review"
+    challenge_id: str = Field(primary_key=True, foreign_key="phonetics_challenge.id")
+    lesson_id: str = Field(index=True)
+    selected_id: str
+    correct: bool
+    created_at: datetime = Field(default_factory=utc_now)

@@ -227,7 +227,7 @@ export const StudyPage: React.FC<StudyPageProps> = ({
       : 0;
 
   return (
-    <div className="min-h-screen bg-background text-text-primary flex flex-col overflow-x-hidden">
+    <div className="study-shell min-h-screen bg-background text-text-primary flex flex-col overflow-x-hidden" data-activity={activeStep}>
       {/* Recording Warning Modal */}
       {showRecordingWarning && (
         <div
@@ -274,7 +274,7 @@ export const StudyPage: React.FC<StudyPageProps> = ({
 
       {/* Top Header */}
       <header className="border-b border-border bg-surface sticky top-0 z-30 w-full">
-        <div className="max-w-[1600px] mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-3">
+        <div className="study-header mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-3">
           {/* Left: Navigation and Truncated Title */}
           <div className="flex items-center space-x-3 min-w-0">
             <button
@@ -320,7 +320,7 @@ export const StudyPage: React.FC<StudyPageProps> = ({
       </header>
 
       {/* Main Workspace Body: Unified 3-Column Layout */}
-      <main id="main-content" className="flex-1 max-w-[1320px] w-full mx-auto p-4 sm:p-6">
+      <main id="main-content" className="study-main flex-1 w-full mx-auto p-4 sm:p-6">
         {isLoading && (
           <div className="flex flex-col items-center justify-center py-24 space-y-3">
             <div className="w-8 h-8 border-3 border-accent/20 border-t-accent rounded-full animate-spin" />
@@ -346,11 +346,11 @@ export const StudyPage: React.FC<StudyPageProps> = ({
         )}
 
         {currentVideo && video && !isError && (
-          <div className="w-full grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+          <div className="study-grid w-full grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
             {/* COLUMN 1: LEFT (Video Player & Anti-Spoiler Transcript) */}
             <section
               aria-label="Video Player and Segment Navigation"
-              className="lg:col-span-5 flex flex-col space-y-4 min-w-0"
+              className="study-media lg:col-span-5 flex flex-col space-y-4 min-w-0"
             >
               {/* Local Video Player */}
               <VideoPlayer
@@ -365,7 +365,7 @@ export const StudyPage: React.FC<StudyPageProps> = ({
               />
 
               {/* Segment List Panel: Anti-Spoiler Transcript with Masked Dots */}
-              <div className="bg-surface rounded-panel border border-border p-4 shadow-lg flex flex-col space-y-3">
+              <div className="study-sentences bg-surface rounded-panel border border-border p-4 shadow-lg flex flex-col space-y-3">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-2">
                     <FileText className="w-4 h-4 text-accent" />
@@ -403,10 +403,10 @@ export const StudyPage: React.FC<StudyPageProps> = ({
             {/* COLUMN 2: CENTER (Active Dictation & Unified Shadowing Studio) */}
             <section
               aria-label="Dictation and Shadowing Workspace"
-              className="lg:col-span-7 flex flex-col space-y-4 min-w-0"
+              className="study-work lg:col-span-7 flex flex-col space-y-4 min-w-0"
             >
               {/* Stepper & Navigation Card */}
-              <div className="bg-surface rounded-panel border border-border p-4 shadow-lg space-y-3">
+              <div className="study-navigation bg-surface rounded-panel border border-border p-4 shadow-lg space-y-3">
                 <div className="flex items-center justify-between border-b border-border/80 pb-3 flex-wrap gap-3">
                   <div role="tablist" aria-label="Practice activity" className="flex items-center gap-1 w-full bg-background p-1 rounded-2xl">
                     {(['listen', 'dictate', 'shadow'] as StudyStep[]).map((step, index) => {
@@ -547,7 +547,6 @@ export const StudyPage: React.FC<StudyPageProps> = ({
               </div>
 
               <div hidden={activeStep !== 'shadow'} className="space-y-4">
-              <div className="p-5 bg-surface border border-border rounded-panel"><p className="eyebrow mb-3">STEP 03 · FIND YOUR VOICE</p><h2 className="text-xl font-semibold">Say it in your own voice.</h2><p className="text-sm text-text-secondary mt-2 leading-relaxed">Listen to the original, then record yourself saying the same sentence. Try to copy the rhythm. A little better each time is enough.</p>{!isSegmentUnlocked && <button className="secondary-button mt-4" onClick={() => changeStep('dictate')}>Write or reveal the sentence first<ChevronRight size={16} /></button>}</div>
               <ShadowingStudio
                 segment={activeSegment}
                 onListenOriginal={() => playerRef.current?.replay()}
@@ -564,7 +563,7 @@ export const StudyPage: React.FC<StudyPageProps> = ({
             {isInspectorOpen && <section
               ref={inspectorRef}
               aria-label="British Study Inspector"
-              className="lg:col-span-12 bg-surface rounded-panel border border-border overflow-hidden flex flex-col scroll-mt-20"
+              className="study-inspector lg:col-span-12 bg-surface rounded-panel border border-border overflow-hidden flex flex-col scroll-mt-20"
             >
               <div className="flex items-center justify-between px-5 pt-4"><h2 className="font-semibold">Your study notes</h2><button className="quiet-button" aria-label="Close study notes" onClick={() => setIsInspectorOpen(false)}><X size={18} /></button></div>
               <BritishInspector

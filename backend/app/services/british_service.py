@@ -4,11 +4,14 @@ import json
 import logging
 import re
 import urllib.parse
+import uuid
+import unicodedata
 from pathlib import Path
 from typing import Optional, Tuple
 
 import httpx
 from sqlmodel import Session, select
+from sqlalchemy.exc import IntegrityError
 
 from backend.app.config import settings
 from backend.app.models import DictionaryCache
@@ -21,64 +24,12 @@ TTS_CACHE_DIR.mkdir(parents=True, exist_ok=True)
 
 DEFAULT_BRITISH_VOICE = "en-GB-RyanNeural"  # Professional natural UK voice
 
-try:
-    import eng_to_ipa
-except ImportError:
-    eng_to_ipa = None
-
-ARPABET_TO_IPA = {
-    "AA": "ɑː", "AA0": "ɑː", "AA1": "ɑː", "AA2": "ɑː",
-    "AE": "æ", "AE0": "æ", "AE1": "æ", "AE2": "æ",
-    "AH": "ʌ", "AH0": "ə", "AH1": "ʌ", "AH2": "ʌ",
-    "AO": "ɔː", "AO0": "ɔː", "AO1": "ɔː", "AO2": "ɔː",
-    "AW": "aʊ", "AW0": "aʊ", "AW1": "aʊ", "AW2": "aʊ",
-    "AY": "aɪ", "AY0": "aɪ", "AY1": "aɪ", "AY2": "aɪ",
-    "EH": "e", "EH0": "e", "EH1": "e", "EH2": "e",
-    "ER": "ɜː", "ER0": "ə", "ER1": "ɜː", "ER2": "ɜː",
-    "EY": "eɪ", "EY0": "eɪ", "EY1": "eɪ", "EY2": "eɪ",
-    "IH": "ɪ", "IH0": "ɪ", "IH1": "ɪ", "IH2": "ɪ",
-    "IY": "iː", "IY0": "i", "IY1": "iː", "IY2": "iː",
-    "OW": "əʊ", "OW0": "əʊ", "OW1": "əʊ", "OW2": "əʊ",
-    "OY": "ɔɪ", "OY0": "ɔɪ", "OY1": "ɔɪ", "OY2": "ɔɪ",
-    "UH": "ʊ", "UH0": "ʊ", "UH1": "ʊ", "UH2": "ʊ",
-    "UW": "uː", "UW0": "u", "UW1": "uː", "UW2": "uː",
-    "B": "b", "CH": "tʃ", "D": "d", "DH": "ð", "F": "f",
-    "G": "ɡ", "HH": "h", "JH": "dʒ", "K": "k", "L": "l",
-    "M": "m", "N": "n", "NG": "ŋ", "P": "p", "R": "r",
-    "S": "s", "SH": "ʃ", "T": "t", "TH": "θ", "V": "v",
-    "W": "w", "Y": "j", "Z": "z", "ZH": "ʒ",
-}
+from backend.app.services.pronunciation_lexicon import resolve_pronunciation
 
 
 def format_ipa(word: str, raw_arpa: Optional[str] = None) -> Optional[str]:
-    """
-    Derives genuine British IPA phonetic transcription from eng_to_ipa or ARPABET.
-    Never outputs raw ARPABET tokens like '/p r ih1 t iy0/'.
-    """
-    if eng_to_ipa is not None:
-        try:
-            converted = eng_to_ipa.convert(word)
-            if converted and not converted.endswith("*"):
-                return f"/{converted}/"
-        except Exception:
-            pass
-
-    if raw_arpa:
-        tokens = raw_arpa.strip().split()
-        ipa_tokens = []
-        for t in tokens:
-            clean = t.upper()
-            if "1" in clean:
-                sym = ARPABET_TO_IPA.get(clean, clean.lower().replace("1", ""))
-                ipa_tokens.append("ˈ" + sym)
-            elif "2" in clean:
-                sym = ARPABET_TO_IPA.get(clean, clean.lower().replace("2", ""))
-                ipa_tokens.append("ˌ" + sym)
-            else:
-                ipa_tokens.append(ARPABET_TO_IPA.get(clean, clean.lower()))
-        if ipa_tokens:
-            return f"/{''.join(ipa_tokens)}/"
-    return None
+    """Return a local GB reading only when it is unambiguous."""
+    return resolve_pronunciation(word)["phonetic_uk"]
 
 
 def sanitize_filename(text: str) -> str:
@@ -95,28 +46,33 @@ async def get_or_create_british_audio(
     voice: str = DEFAULT_BRITISH_VOICE,
 ) -> Path:
     """
-    Synthesize high-quality British audio using Microsoft Edge Neural TTS.
-    0 tokens, 0 MB VRAM, 100% free with local disk caching.
+    Optional online Edge TTS with bounded wait and atomic local caching.
     """
     clean_text = text.strip()
     if not clean_text:
         raise ValueError("Audio synthesis text cannot be empty.")
 
-    slug = sanitize_filename(clean_text)
+    slug = hashlib.sha256((voice + "\0" + clean_text).encode("utf-8")).hexdigest()
     file_path = TTS_CACHE_DIR / f"{slug}.mp3"
 
     if file_path.exists() and file_path.stat().st_size > 0:
         return file_path
 
+    temporary = file_path.with_name(file_path.name + "." + uuid.uuid4().hex + ".tmp")
     try:
         import edge_tts
 
         communicate = edge_tts.Communicate(clean_text, voice)
-        await communicate.save(str(file_path))
+        await asyncio.wait_for(communicate.save(str(temporary)), timeout=20)
+        if temporary.stat().st_size == 0:
+            raise ValueError("Empty TTS response")
+        temporary.replace(file_path)
         return file_path
     except Exception as e:
         logger.error(f"edge-tts synthesis failed for '{clean_text}': {e}")
         raise
+    finally:
+        temporary.unlink(missing_ok=True)
 
 
 async def fetch_free_dictionary(word: str) -> Optional[dict]:
@@ -164,7 +120,7 @@ async def lookup_word(
     Look up British IPA, part of speech, English definition, and example.
     Checks SQLite DictionaryCache first. Fallbacks to FreeDict then Datamuse.
     """
-    normalized_word = word.strip().lower()
+    normalized_word = unicodedata.normalize("NFC", word).strip().lower().replace("’", "'")
     if not normalized_word:
         return DictionaryEntryDTO(
             word="",
@@ -178,18 +134,9 @@ async def lookup_word(
     ).first()
 
     if cached:
-        # Auto-heal legacy cache entries with raw ARPABET (spaces, digits)
-        if cached.phonetic_uk and (re.search(r"\d", cached.phonetic_uk) or " " in cached.phonetic_uk):
-            fixed_ipa = format_ipa(cached.word, cached.phonetic_uk.replace("/", ""))
-            if fixed_ipa:
-                cached.phonetic_uk = fixed_ipa
-                session.add(cached)
-                session.commit()
-                session.refresh(cached)
-
         return DictionaryEntryDTO(
             word=cached.word,
-            phonetic_uk=cached.phonetic_uk,
+            **resolve_pronunciation(normalized_word),
             part_of_speech=cached.part_of_speech,
             definition_en=cached.definition_en,
             definition_es=cached.definition_es,
@@ -206,19 +153,6 @@ async def lookup_word(
 
     free_dict_data = await fetch_free_dictionary(normalized_word)
     if free_dict_data:
-        # Extract phonetics (prioritize -uk text/audio if available)
-        phonetics = free_dict_data.get("phonetics", [])
-        for p in phonetics:
-            text = p.get("text")
-            if text and not phonetic_uk:
-                phonetic_uk = text
-            if text and ("uk" in p.get("audio", "").lower() or "gb" in p.get("audio", "").lower()):
-                phonetic_uk = text
-                break
-
-        if not phonetic_uk:
-            phonetic_uk = free_dict_data.get("phonetic")
-
         meanings = free_dict_data.get("meanings", [])
         if meanings:
             m = meanings[0]
@@ -229,15 +163,13 @@ async def lookup_word(
                 example_en = defs[0].get("example")
 
     # 3. If Free Dictionary didn't provide definitions or phonetics, try Datamuse fallback
-    if not definition_en or not phonetic_uk:
+    if not definition_en:
         dm_data = await fetch_datamuse(normalized_word)
         if dm_data:
             # Datamuse tags can give POS and pronunciation
             tags = dm_data.get("tags", [])
             for t in tags:
-                if t.startswith("pron:") and not phonetic_uk:
-                    phonetic_uk = format_ipa(normalized_word, t[5:].strip())
-                elif t in ("v", "verb") and not part_of_speech:
+                if t in ("v", "verb") and not part_of_speech:
                     part_of_speech = "verb"
                 elif t in ("n", "noun") and not part_of_speech:
                     part_of_speech = "noun"
@@ -263,17 +195,8 @@ async def lookup_word(
                 else:
                     definition_en = first_def.strip()
 
-    # Pre-warm or trigger British audio generation in background
-    try:
-        await get_or_create_british_audio(normalized_word)
-    except Exception as e:
-        logger.warning(f"Could not pre-synthesize British audio for {normalized_word}: {e}")
-
-    # Fallback placeholders if still missing
-    if not definition_en:
-        definition_en = f"Term: '{normalized_word}'"
-    if not phonetic_uk:
-        phonetic_uk = format_ipa(normalized_word) or f"/{normalized_word}/"
+    # Definitions and pronunciation have independent provenance.
+    phonetic_uk = format_ipa(normalized_word)
 
     # Save to SQLite DictionaryCache
     new_entry = DictionaryCache(
@@ -286,12 +209,19 @@ async def lookup_word(
         audio_relative_path=f"tts_uk/{sanitize_filename(normalized_word)}.mp3",
     )
     session.add(new_entry)
-    session.commit()
+    try:
+        session.commit()
+    except IntegrityError:
+        session.rollback()
+        # Another request may have populated this word while network lookup ran.
+        if session.get(DictionaryCache, normalized_word) is None:
+            raise
+        return await lookup_word(normalized_word, session)
     session.refresh(new_entry)
 
     return DictionaryEntryDTO(
         word=new_entry.word,
-        phonetic_uk=new_entry.phonetic_uk,
+        **resolve_pronunciation(normalized_word),
         part_of_speech=new_entry.part_of_speech,
         definition_en=new_entry.definition_en,
         definition_es=new_entry.definition_es,

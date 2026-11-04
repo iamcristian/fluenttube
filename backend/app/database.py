@@ -8,11 +8,8 @@ SQLite Pragma and Transaction Rules:
 - One DB session per request or worker task unit; sessions are never shared across threads.
 
 Migration Strategy:
-- In V1, SQLModel.metadata.create_all initializes all declared entities.
-- Table structures are immutable in V1.
-- Future schema evolutions must be managed via versioned Alembic migrations
-  (`alembic revision --autogenerate`) with mandatory SQLite backups prior to upgrade.
-- Dropping or wiping production database files to bypass migrations is prohibited.
+- Versioned Alembic upgrades run on startup after a consistent SQLite backup.
+- Rollback restores that backup while the app is stopped.
 """
 
 from pathlib import Path
@@ -50,7 +47,33 @@ engine = get_engine()
 def init_db(engine_override: Optional[Engine] = None) -> None:
     """Initialize database tables."""
     target_engine = engine_override or engine
-    SQLModel.metadata.create_all(target_engine)
+    from alembic import command
+    from alembic.config import Config
+    import sqlite3
+    import uuid
+    from sqlalchemy import inspect
+    config = Config()
+    config.set_main_option("script_location", str(BACKEND_DIR / "migrations"))
+    with target_engine.connect() as connection:
+        tables = inspect(connection).get_table_names()
+        current = None
+        if "alembic_version" in tables:
+            current = connection.exec_driver_sql("SELECT version_num FROM alembic_version").scalar()
+        connection.rollback()
+        if current != "0002_reviews" and tables and target_engine.url.database not in (None, "", ":memory:"):
+            source = Path(target_engine.url.database)
+            backup = source.with_name(source.name + ".pre-phonetics-" + uuid.uuid4().hex + ".bak")
+            with sqlite3.connect(str(source)) as origin, sqlite3.connect(str(backup)) as destination:
+                origin.backup(destination)
+        config.attributes["connection"] = connection
+        # Explicit transaction keeps SQLite DDL and revision stamping atomic.
+        connection.exec_driver_sql("BEGIN IMMEDIATE")
+        try:
+            command.upgrade(config, "head")
+            connection.commit()
+        except Exception:
+            connection.rollback()
+            raise
 
 def get_session() -> Generator[Session, None, None]:
     """Dependency for providing a transactional session per request."""

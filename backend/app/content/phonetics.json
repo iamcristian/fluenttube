@@ -1,0 +1,1116 @@
+{
+  "version": "2",
+  "accent_profile": "Southern non-rhotic teaching reference",
+  "review_status": "editorial_pending_review",
+  "catalog": [
+    {
+      "ipa": "iː",
+      "category": "Vowels",
+      "lesson_id": "fleece"
+    },
+    {
+      "ipa": "ɪ",
+      "category": "Vowels",
+      "lesson_id": "kit"
+    },
+    {
+      "ipa": "e",
+      "category": "Vowels",
+      "lesson_id": "dress"
+    },
+    {
+      "ipa": "æ",
+      "category": "Vowels",
+      "lesson_id": "trap"
+    },
+    {
+      "ipa": "ɑː",
+      "category": "Vowels",
+      "lesson_id": "palm"
+    },
+    {
+      "ipa": "ɒ",
+      "category": "Vowels",
+      "lesson_id": "lot"
+    },
+    {
+      "ipa": "ɔː",
+      "category": "Vowels",
+      "lesson_id": "thought"
+    },
+    {
+      "ipa": "ʊ",
+      "category": "Vowels",
+      "lesson_id": "foot"
+    },
+    {
+      "ipa": "uː",
+      "category": "Vowels",
+      "lesson_id": "goose"
+    },
+    {
+      "ipa": "ʌ",
+      "category": "Vowels",
+      "lesson_id": "strut"
+    },
+    {
+      "ipa": "ɜː",
+      "category": "Vowels",
+      "lesson_id": "nurse"
+    },
+    {
+      "ipa": "ə",
+      "category": "Vowels",
+      "lesson_id": "schwa"
+    },
+    {
+      "ipa": "eɪ",
+      "category": "Diphthongs",
+      "lesson_id": "face"
+    },
+    {
+      "ipa": "aɪ",
+      "category": "Diphthongs",
+      "lesson_id": "price"
+    },
+    {
+      "ipa": "ɔɪ",
+      "category": "Diphthongs",
+      "lesson_id": "choice"
+    },
+    {
+      "ipa": "əʊ",
+      "category": "Diphthongs",
+      "lesson_id": "goat"
+    },
+    {
+      "ipa": "aʊ",
+      "category": "Diphthongs",
+      "lesson_id": "mouth"
+    },
+    {
+      "ipa": "ɪə",
+      "category": "Diphthongs",
+      "lesson_id": "near"
+    },
+    {
+      "ipa": "eə",
+      "category": "Diphthongs",
+      "lesson_id": "square"
+    },
+    {
+      "ipa": "ʊə",
+      "category": "Diphthongs",
+      "lesson_id": "cure"
+    },
+    {
+      "ipa": "p",
+      "category": "Consonants",
+      "lesson_id": "p"
+    },
+    {
+      "ipa": "b",
+      "category": "Consonants",
+      "lesson_id": "b"
+    },
+    {
+      "ipa": "t",
+      "category": "Consonants",
+      "lesson_id": "t"
+    },
+    {
+      "ipa": "d",
+      "category": "Consonants",
+      "lesson_id": "d"
+    },
+    {
+      "ipa": "k",
+      "category": "Consonants",
+      "lesson_id": "k"
+    },
+    {
+      "ipa": "ɡ",
+      "category": "Consonants",
+      "lesson_id": "g"
+    },
+    {
+      "ipa": "f",
+      "category": "Consonants",
+      "lesson_id": "f"
+    },
+    {
+      "ipa": "v",
+      "category": "Consonants",
+      "lesson_id": "v"
+    },
+    {
+      "ipa": "θ",
+      "category": "Consonants",
+      "lesson_id": "theta"
+    },
+    {
+      "ipa": "ð",
+      "category": "Consonants",
+      "lesson_id": "eth"
+    },
+    {
+      "ipa": "s",
+      "category": "Consonants",
+      "lesson_id": "s"
+    },
+    {
+      "ipa": "z",
+      "category": "Consonants",
+      "lesson_id": "z"
+    },
+    {
+      "ipa": "ʃ",
+      "category": "Consonants",
+      "lesson_id": "sh"
+    },
+    {
+      "ipa": "ʒ",
+      "category": "Consonants",
+      "lesson_id": "zh"
+    },
+    {
+      "ipa": "h",
+      "category": "Consonants",
+      "lesson_id": "h"
+    },
+    {
+      "ipa": "tʃ",
+      "category": "Consonants",
+      "lesson_id": "ch"
+    },
+    {
+      "ipa": "dʒ",
+      "category": "Consonants",
+      "lesson_id": "j-affricate"
+    },
+    {
+      "ipa": "m",
+      "category": "Consonants",
+      "lesson_id": "m"
+    },
+    {
+      "ipa": "n",
+      "category": "Consonants",
+      "lesson_id": "n"
+    },
+    {
+      "ipa": "ŋ",
+      "category": "Consonants",
+      "lesson_id": "ng"
+    },
+    {
+      "ipa": "l",
+      "category": "Consonants",
+      "lesson_id": "l"
+    },
+    {
+      "ipa": "r",
+      "category": "Consonants",
+      "lesson_id": "r"
+    },
+    {
+      "ipa": "j",
+      "category": "Consonants",
+      "lesson_id": "yod"
+    },
+    {
+      "ipa": "w",
+      "category": "Consonants",
+      "lesson_id": "w"
+    },
+    {
+      "ipa": "ˈ",
+      "category": "Stress & symbols",
+      "lesson_id": "primary"
+    },
+    {
+      "ipa": "ˌ",
+      "category": "Stress & symbols",
+      "lesson_id": "secondary"
+    },
+    {
+      "ipa": "ː",
+      "category": "Stress & symbols",
+      "lesson_id": "length"
+    }
+  ],
+  "lessons": [
+    {
+      "id": "fleece",
+      "ipa": "iː",
+      "word": "sheep",
+      "name": "Vowel · FLEECE",
+      "guide_es": "Eleva la parte delantera de la lengua hacia el paladar. Deja los labios sin redondear; compara sheep con ship.",
+      "contrast_id": "kit",
+      "contrast_word": "ship",
+      "diagram": {
+        "kind": "vowel",
+        "points": [
+          [
+            0.06,
+            0.05
+          ]
+        ],
+        "lips": "spread"
+      },
+      "version": "2"
+    },
+    {
+      "id": "kit",
+      "ipa": "ɪ",
+      "word": "ship",
+      "name": "Vowel · KIT",
+      "guide_es": "Desde /iː/, baja y retrasa un poco la lengua. Mantén la mandíbula suelta; escucha la vocal de ship.",
+      "contrast_id": "fleece",
+      "contrast_word": "sheep",
+      "diagram": {
+        "kind": "vowel",
+        "points": [
+          [
+            0.2,
+            0.22
+          ]
+        ],
+        "lips": "relaxed"
+      },
+      "version": "2"
+    },
+    {
+      "id": "dress",
+      "ipa": "e",
+      "word": "bed",
+      "name": "Vowel · DRESS",
+      "guide_es": "Abre la mandíbula a media altura. Deja la lengua delante y escucha la vocal breve de bed.",
+      "contrast_id": "trap",
+      "contrast_word": "bad",
+      "diagram": {
+        "kind": "vowel",
+        "points": [
+          [
+            0.16,
+            0.49
+          ]
+        ],
+        "lips": "relaxed"
+      },
+      "version": "2"
+    },
+    {
+      "id": "trap",
+      "ipa": "æ",
+      "word": "bad",
+      "name": "Vowel · TRAP",
+      "guide_es": "Abre más la mandíbula que para bed. Mantén la parte alta de la lengua hacia delante al decir bad.",
+      "contrast_id": "dress",
+      "contrast_word": "bed",
+      "diagram": {
+        "kind": "vowel",
+        "points": [
+          [
+            0.1,
+            0.85
+          ]
+        ],
+        "lips": "spread"
+      },
+      "version": "2"
+    },
+    {
+      "id": "palm",
+      "ipa": "ɑː",
+      "word": "cart",
+      "name": "Vowel · PALM",
+      "guide_es": "Abre la boca y deja la lengua baja y posterior. En esta referencia no rótica, cart no lleva una r antes de la t.",
+      "contrast_id": "strut",
+      "contrast_word": "cut",
+      "diagram": {
+        "kind": "vowel",
+        "points": [
+          [
+            0.83,
+            0.96
+          ]
+        ],
+        "lips": "relaxed"
+      },
+      "version": "2"
+    },
+    {
+      "id": "lot",
+      "ipa": "ɒ",
+      "word": "cot",
+      "name": "Vowel · LOT",
+      "guide_es": "Redondea suavemente los labios y baja la lengua hacia atrás. Contrasta cot con caught.",
+      "contrast_id": "thought",
+      "contrast_word": "caught",
+      "diagram": {
+        "kind": "vowel",
+        "points": [
+          [
+            0.91,
+            0.86
+          ]
+        ],
+        "lips": "round"
+      },
+      "version": "2"
+    },
+    {
+      "id": "thought",
+      "ipa": "ɔː",
+      "word": "caught",
+      "name": "Vowel · THOUGHT",
+      "guide_es": "Mantén los labios redondeados y eleva la lengua respecto a cot. Escucha la vocal sostenida de caught.",
+      "contrast_id": "lot",
+      "contrast_word": "cot",
+      "diagram": {
+        "kind": "vowel",
+        "points": [
+          [
+            0.88,
+            0.53
+          ]
+        ],
+        "lips": "round"
+      },
+      "version": "2"
+    },
+    {
+      "id": "foot",
+      "ipa": "ʊ",
+      "word": "full",
+      "name": "Vowel · FOOT",
+      "guide_es": "Relaja los labios con un redondeamiento leve. La lengua queda algo más baja que para la vocal de fool.",
+      "contrast_id": "goose",
+      "contrast_word": "fool",
+      "diagram": {
+        "kind": "vowel",
+        "points": [
+          [
+            0.7,
+            0.25
+          ]
+        ],
+        "lips": "round"
+      },
+      "version": "2"
+    },
+    {
+      "id": "goose",
+      "ipa": "uː",
+      "word": "fool",
+      "name": "Vowel · GOOSE",
+      "guide_es": "Eleva la lengua y redondea los labios. En voces británicas modernas la lengua puede adelantarse bastante.",
+      "contrast_id": "foot",
+      "contrast_word": "full",
+      "diagram": {
+        "kind": "vowel",
+        "points": [
+          [
+            0.61,
+            0.06
+          ]
+        ],
+        "lips": "round"
+      },
+      "version": "2"
+    },
+    {
+      "id": "strut",
+      "ipa": "ʌ",
+      "word": "cut",
+      "name": "Vowel · STRUT",
+      "guide_es": "Abre moderadamente la mandíbula. Mantén labios neutros y escucha la vocal tónica breve de cut.",
+      "contrast_id": "palm",
+      "contrast_word": "cart",
+      "diagram": {
+        "kind": "vowel",
+        "points": [
+          [
+            0.49,
+            0.72
+          ]
+        ],
+        "lips": "relaxed"
+      },
+      "version": "2"
+    },
+    {
+      "id": "nurse",
+      "ipa": "ɜː",
+      "word": "bird",
+      "name": "Vowel · NURSE",
+      "guide_es": "Mantén la lengua centrada y los labios relajados al sostener la vocal tónica de bird.",
+      "contrast_id": "schwa",
+      "contrast_word": "about",
+      "diagram": {
+        "kind": "vowel",
+        "points": [
+          [
+            0.5,
+            0.47
+          ]
+        ],
+        "lips": "relaxed"
+      },
+      "version": "2"
+    },
+    {
+      "id": "schwa",
+      "ipa": "ə",
+      "word": "about",
+      "name": "Vowel · SCHWA",
+      "guide_es": "Escucha la primera sílaba de about. Reduce el esfuerzo y deja la lengua cerca del centro en esa sílaba átona.",
+      "contrast_id": "nurse",
+      "contrast_word": "bird",
+      "diagram": {
+        "kind": "vowel",
+        "points": [
+          [
+            0.47,
+            0.53
+          ]
+        ],
+        "lips": "relaxed"
+      },
+      "version": "2"
+    },
+    {
+      "id": "face",
+      "ipa": "eɪ",
+      "word": "late",
+      "name": "Diphthong · FACE",
+      "guide_es": "Empieza con la lengua delante a media altura y elévala. Une los dos objetivos en una sola sílaba.",
+      "contrast_id": "price",
+      "contrast_word": "light",
+      "diagram": {
+        "kind": "vowel",
+        "points": [
+          [
+            0.13,
+            0.49
+          ],
+          [
+            0.18,
+            0.18
+          ]
+        ],
+        "lips": "spread"
+      },
+      "version": "2"
+    },
+    {
+      "id": "price",
+      "ipa": "aɪ",
+      "word": "light",
+      "name": "Diphthong · PRICE",
+      "guide_es": "Parte de una vocal abierta y desplázate hacia delante y arriba. Evita insertar una pausa.",
+      "contrast_id": "face",
+      "contrast_word": "late",
+      "diagram": {
+        "kind": "vowel",
+        "points": [
+          [
+            0.41,
+            0.96
+          ],
+          [
+            0.18,
+            0.18
+          ]
+        ],
+        "lips": "relaxed"
+      },
+      "version": "2"
+    },
+    {
+      "id": "choice",
+      "ipa": "ɔɪ",
+      "word": "boy",
+      "name": "Diphthong · CHOICE",
+      "guide_es": "Empieza atrás con labios redondeados. Adelanta y sube la lengua mientras se pierde el redondeamiento.",
+      "contrast_id": "price",
+      "contrast_word": "light",
+      "diagram": {
+        "kind": "vowel",
+        "points": [
+          [
+            0.88,
+            0.55
+          ],
+          [
+            0.18,
+            0.18
+          ]
+        ],
+        "lips": "round-open"
+      },
+      "version": "2"
+    },
+    {
+      "id": "goat",
+      "ipa": "əʊ",
+      "word": "coat",
+      "name": "Diphthong · GOAT",
+      "guide_es": "Empieza cerca del centro y redondea los labios al cerrar la vocal. Escucha la trayectoria en coat.",
+      "contrast_id": "mouth",
+      "contrast_word": "cow",
+      "diagram": {
+        "kind": "vowel",
+        "points": [
+          [
+            0.47,
+            0.48
+          ],
+          [
+            0.74,
+            0.22
+          ]
+        ],
+        "lips": "to-round"
+      },
+      "version": "2"
+    },
+    {
+      "id": "mouth",
+      "ipa": "aʊ",
+      "word": "cow",
+      "name": "Diphthong · MOUTH",
+      "guide_es": "Abre la mandíbula al inicio. Luego eleva la lengua y redondea los labios sin separar dos sílabas.",
+      "contrast_id": "goat",
+      "contrast_word": "coat",
+      "diagram": {
+        "kind": "vowel",
+        "points": [
+          [
+            0.36,
+            0.92
+          ],
+          [
+            0.74,
+            0.22
+          ]
+        ],
+        "lips": "to-round"
+      },
+      "version": "2"
+    },
+    {
+      "id": "near",
+      "ipa": "ɪə",
+      "word": "near",
+      "name": "Diphthong · NEAR",
+      "guide_es": "En la lectura con diptongo, pasa de una posición alta anterior al centro. También se oye una vocal larga más estable.",
+      "contrast_id": "square",
+      "contrast_word": "square",
+      "diagram": {
+        "kind": "vowel",
+        "points": [
+          [
+            0.18,
+            0.2
+          ],
+          [
+            0.49,
+            0.51
+          ]
+        ],
+        "lips": "relaxed"
+      },
+      "version": "2"
+    },
+    {
+      "id": "square",
+      "ipa": "eə",
+      "word": "square",
+      "name": "Diphthong · SQUARE",
+      "guide_es": "En la lectura con diptongo, relaja hacia el centro una vocal anterior media. Muchos hablantes mantienen una sola vocal larga.",
+      "contrast_id": "near",
+      "contrast_word": "near",
+      "diagram": {
+        "kind": "vowel",
+        "points": [
+          [
+            0.13,
+            0.54
+          ],
+          [
+            0.49,
+            0.51
+          ]
+        ],
+        "lips": "relaxed"
+      },
+      "version": "2"
+    },
+    {
+      "id": "cure",
+      "ipa": "ʊə",
+      "word": "cure",
+      "name": "Diphthong · CURE",
+      "guide_es": "En la variante con diptongo, relaja una vocal redondeada hacia el centro. Otros hablantes usan una vocal más estable, a menudo /ɔː/.",
+      "contrast_id": "thought",
+      "contrast_word": "caught",
+      "diagram": {
+        "kind": "vowel",
+        "points": [
+          [
+            0.72,
+            0.23
+          ],
+          [
+            0.49,
+            0.51
+          ]
+        ],
+        "lips": "round-open"
+      },
+      "version": "2"
+    },
+    {
+      "id": "p",
+      "ipa": "p",
+      "word": "pin",
+      "name": "bilabial stop",
+      "guide_es": "Junta ambos labios para retener aire y sepáralos. Al inicio de pin suele oírse una pequeña aspiración.",
+      "contrast_id": "b",
+      "contrast_word": "bin",
+      "diagram": {
+        "kind": "consonant",
+        "place": "bilabial",
+        "manner": "stop",
+        "voiced": false
+      },
+      "version": "2"
+    },
+    {
+      "id": "b",
+      "ipa": "b",
+      "word": "bin",
+      "name": "bilabial stop",
+      "guide_es": "Cierra ambos labios y suelta el cierre con poca aspiración. La vibración durante el cierre puede ser parcial.",
+      "contrast_id": "p",
+      "contrast_word": "pin",
+      "diagram": {
+        "kind": "consonant",
+        "place": "bilabial",
+        "manner": "stop",
+        "voiced": true
+      },
+      "version": "2"
+    },
+    {
+      "id": "t",
+      "ipa": "t",
+      "word": "tin",
+      "name": "alveolar stop",
+      "guide_es": "Toca la cresta detrás de los dientes superiores con la punta de la lengua. Retira la punta para liberar el aire.",
+      "contrast_id": "d",
+      "contrast_word": "din",
+      "diagram": {
+        "kind": "consonant",
+        "place": "alveolar",
+        "manner": "stop",
+        "voiced": false
+      },
+      "version": "2"
+    },
+    {
+      "id": "d",
+      "ipa": "d",
+      "word": "din",
+      "name": "alveolar stop",
+      "guide_es": "Haz un cierre breve en los alvéolos con la punta de la lengua. Compara su liberación con la de tin.",
+      "contrast_id": "t",
+      "contrast_word": "tin",
+      "diagram": {
+        "kind": "consonant",
+        "place": "alveolar",
+        "manner": "stop",
+        "voiced": true
+      },
+      "version": "2"
+    },
+    {
+      "id": "k",
+      "ipa": "k",
+      "word": "coat",
+      "name": "velar stop",
+      "guide_es": "Lleva el dorso de la lengua al velo del paladar para cerrar el paso. Baja el dorso y libera el aire.",
+      "contrast_id": "g",
+      "contrast_word": "goat",
+      "diagram": {
+        "kind": "consonant",
+        "place": "velar",
+        "manner": "stop",
+        "voiced": false
+      },
+      "version": "2"
+    },
+    {
+      "id": "g",
+      "ipa": "ɡ",
+      "word": "goat",
+      "name": "velar stop",
+      "guide_es": "Cierra atrás con el dorso de la lengua. Suelta el cierre con menos aspiración que al empezar coat.",
+      "contrast_id": "k",
+      "contrast_word": "coat",
+      "diagram": {
+        "kind": "consonant",
+        "place": "velar",
+        "manner": "stop",
+        "voiced": true
+      },
+      "version": "2"
+    },
+    {
+      "id": "f",
+      "ipa": "f",
+      "word": "fan",
+      "name": "labiodental fricative",
+      "guide_es": "Apoya suavemente el labio inferior contra los incisivos superiores. Sostén la fricción y siente el aire continuo.",
+      "contrast_id": "v",
+      "contrast_word": "van",
+      "diagram": {
+        "kind": "consonant",
+        "place": "labiodental",
+        "manner": "fricative",
+        "voiced": false
+      },
+      "version": "2"
+    },
+    {
+      "id": "v",
+      "ipa": "v",
+      "word": "van",
+      "name": "labiodental fricative",
+      "guide_es": "Conserva el contacto del labio inferior con los incisivos superiores. Añade voz a la fricción y compara fan con van.",
+      "contrast_id": "f",
+      "contrast_word": "fan",
+      "diagram": {
+        "kind": "consonant",
+        "place": "labiodental",
+        "manner": "fricative",
+        "voiced": true
+      },
+      "version": "2"
+    },
+    {
+      "id": "theta",
+      "ipa": "θ",
+      "word": "thin",
+      "name": "dental fricative",
+      "guide_es": "Acerca la punta de la lengua al borde de los incisivos. Deja una rendija por la que salga aire, sin bloquearlo.",
+      "contrast_id": "eth",
+      "contrast_word": "then",
+      "diagram": {
+        "kind": "consonant",
+        "place": "dental",
+        "manner": "fricative",
+        "voiced": false
+      },
+      "version": "2"
+    },
+    {
+      "id": "eth",
+      "ipa": "ð",
+      "word": "then",
+      "name": "dental fricative",
+      "guide_es": "Mantén una rendija entre lengua y dientes y añade voz. Evita cerrar el paso como en /d/.",
+      "contrast_id": "theta",
+      "contrast_word": "thin",
+      "diagram": {
+        "kind": "consonant",
+        "place": "dental",
+        "manner": "fricative",
+        "voiced": true
+      },
+      "version": "2"
+    },
+    {
+      "id": "s",
+      "ipa": "s",
+      "word": "sip",
+      "name": "alveolar fricative",
+      "guide_es": "Acerca la lámina de la lengua a la cresta alveolar y forma un canal estrecho por el centro. Escucha el siseo.",
+      "contrast_id": "sh",
+      "contrast_word": "ship",
+      "diagram": {
+        "kind": "consonant",
+        "place": "alveolar",
+        "manner": "fricative",
+        "voiced": false
+      },
+      "version": "2"
+    },
+    {
+      "id": "z",
+      "ipa": "z",
+      "word": "zip",
+      "name": "alveolar fricative",
+      "guide_es": "Mantén el mismo canal central que para /s/. Añade vibración al siseo al decir zip.",
+      "contrast_id": "s",
+      "contrast_word": "sip",
+      "diagram": {
+        "kind": "consonant",
+        "place": "alveolar",
+        "manner": "fricative",
+        "voiced": true
+      },
+      "version": "2"
+    },
+    {
+      "id": "sh",
+      "ipa": "ʃ",
+      "word": "ship",
+      "name": "postalveolar fricative",
+      "guide_es": "Retrasa el estrechamiento respecto a /s/ y eleva la lámina de la lengua. Los labios pueden adelantarse ligeramente.",
+      "contrast_id": "s",
+      "contrast_word": "sip",
+      "diagram": {
+        "kind": "consonant",
+        "place": "postalveolar",
+        "manner": "fricative",
+        "voiced": false
+      },
+      "version": "2"
+    },
+    {
+      "id": "zh",
+      "ipa": "ʒ",
+      "word": "vision",
+      "name": "postalveolar fricative",
+      "guide_es": "Escucha la consonante central de vision. Mantén la fricción detrás de los alvéolos y añade voz.",
+      "contrast_id": "sh",
+      "contrast_word": "ship",
+      "diagram": {
+        "kind": "consonant",
+        "place": "postalveolar",
+        "manner": "fricative",
+        "voiced": true
+      },
+      "version": "2"
+    },
+    {
+      "id": "h",
+      "ipa": "h",
+      "word": "hat",
+      "name": "glottal fricative",
+      "guide_es": "Deja abierto el paso de aire en la boca y prepara ya la vocal de hat. El soplo nace en la glotis.",
+      "contrast_id": "f",
+      "contrast_word": "fan",
+      "diagram": {
+        "kind": "consonant",
+        "place": "glottal",
+        "manner": "fricative",
+        "voiced": false
+      },
+      "version": "2"
+    },
+    {
+      "id": "ch",
+      "ipa": "tʃ",
+      "word": "cheap",
+      "name": "postalveolar affricate",
+      "guide_es": "Cierra con la lengua detrás de los alvéolos. Abre poco a poco hasta que aparezca fricción, en un solo gesto.",
+      "contrast_id": "j-affricate",
+      "contrast_word": "jeep",
+      "diagram": {
+        "kind": "consonant",
+        "place": "postalveolar",
+        "manner": "affricate",
+        "voiced": false
+      },
+      "version": "2"
+    },
+    {
+      "id": "j-affricate",
+      "ipa": "dʒ",
+      "word": "jeep",
+      "name": "postalveolar affricate",
+      "guide_es": "Empieza con un cierre detrás de los alvéolos. Libéralo hacia una fricción breve con voz.",
+      "contrast_id": "ch",
+      "contrast_word": "cheap",
+      "diagram": {
+        "kind": "consonant",
+        "place": "postalveolar",
+        "manner": "affricate",
+        "voiced": true
+      },
+      "version": "2"
+    },
+    {
+      "id": "m",
+      "ipa": "m",
+      "word": "sum",
+      "name": "bilabial nasal",
+      "guide_es": "Cierra los labios y baja el velo para que el aire salga por la nariz. Sostén el final de sum.",
+      "contrast_id": "n",
+      "contrast_word": "sun",
+      "diagram": {
+        "kind": "consonant",
+        "place": "bilabial",
+        "manner": "nasal",
+        "voiced": true
+      },
+      "version": "2"
+    },
+    {
+      "id": "n",
+      "ipa": "n",
+      "word": "sun",
+      "name": "alveolar nasal",
+      "guide_es": "Cierra en los alvéolos con la punta de la lengua. Mantén el paso nasal abierto al final de sun.",
+      "contrast_id": "ng",
+      "contrast_word": "sung",
+      "diagram": {
+        "kind": "consonant",
+        "place": "alveolar",
+        "manner": "nasal",
+        "voiced": true
+      },
+      "version": "2"
+    },
+    {
+      "id": "ng",
+      "ipa": "ŋ",
+      "word": "sung",
+      "name": "velar nasal",
+      "guide_es": "Cierra atrás con el dorso de la lengua. Sostén la salida nasal al final de sung sin añadir una oclusiva /ɡ/.",
+      "contrast_id": "n",
+      "contrast_word": "sun",
+      "diagram": {
+        "kind": "consonant",
+        "place": "velar",
+        "manner": "nasal",
+        "voiced": true
+      },
+      "version": "2"
+    },
+    {
+      "id": "l",
+      "ipa": "l",
+      "word": "light",
+      "name": "alveolar lateral",
+      "guide_es": "Toca los alvéolos con la punta de la lengua y deja salir aire por los lados. Observa el inicio de light.",
+      "contrast_id": "r",
+      "contrast_word": "right",
+      "diagram": {
+        "kind": "consonant",
+        "place": "alveolar",
+        "manner": "lateral",
+        "voiced": true
+      },
+      "version": "2"
+    },
+    {
+      "id": "r",
+      "ipa": "r",
+      "word": "right",
+      "name": "postalveolar approximant",
+      "guide_es": "Acerca la lengua a la región postalveolar dejando espacio. Evita golpear o hacer vibrar la punta como en una erre española.",
+      "contrast_id": "l",
+      "contrast_word": "light",
+      "diagram": {
+        "kind": "consonant",
+        "place": "postalveolar",
+        "manner": "approximant",
+        "voiced": true
+      },
+      "version": "2"
+    },
+    {
+      "id": "yod",
+      "ipa": "j",
+      "word": "yes",
+      "name": "palatal approximant",
+      "guide_es": "Eleva el cuerpo de la lengua hacia el paladar duro y deslízalo enseguida hacia la vocal de yes.",
+      "contrast_id": "w",
+      "contrast_word": "wet",
+      "diagram": {
+        "kind": "consonant",
+        "place": "palatal",
+        "manner": "approximant",
+        "voiced": true
+      },
+      "version": "2"
+    },
+    {
+      "id": "w",
+      "ipa": "w",
+      "word": "wet",
+      "name": "labiovelar approximant",
+      "guide_es": "Redondea los labios mientras elevas el dorso de la lengua. Abre ambos pasos al empezar la vocal de wet.",
+      "contrast_id": "yod",
+      "contrast_word": "yes",
+      "diagram": {
+        "kind": "consonant",
+        "place": "labiovelar",
+        "manner": "approximant",
+        "voiced": true
+      },
+      "version": "2"
+    },
+    {
+      "id": "primary",
+      "ipa": "ˈ",
+      "word": "banana",
+      "name": "Primary stress",
+      "guide_es": "El signo se escribe antes de la sílaba con el acento principal. En banana destaca la segunda sílaba.",
+      "contrast_id": "secondary",
+      "contrast_word": "information",
+      "diagram": {
+        "kind": "notation",
+        "focus": 1,
+        "syllables": [
+          "bə",
+          "ˈnɑː",
+          "nə"
+        ]
+      },
+      "version": "2"
+    },
+    {
+      "id": "secondary",
+      "ipa": "ˌ",
+      "word": "information",
+      "name": "Secondary stress",
+      "guide_es": "El primer signo señala un relieve secundario. La sílaba con /meɪ/ lleva el acento principal.",
+      "contrast_id": "primary",
+      "contrast_word": "banana",
+      "diagram": {
+        "kind": "notation",
+        "focus": 0,
+        "syllables": [
+          "ˌɪn",
+          "fə",
+          "ˈmeɪ",
+          "ʃən"
+        ]
+      },
+      "version": "2"
+    },
+    {
+      "id": "length",
+      "ipa": "ː",
+      "word": "sheep",
+      "name": "Vowel length",
+      "guide_es": "Los dos puntos triangulares siguen al símbolo vocálico. Indican longitud en la transcripción; la duración real depende del contexto.",
+      "contrast_id": "primary",
+      "contrast_word": "banana",
+      "diagram": {
+        "kind": "notation",
+        "focus": 0,
+        "syllables": [
+          "ʃiːp"
+        ]
+      },
+      "version": "2"
+    }
+  ]
+}

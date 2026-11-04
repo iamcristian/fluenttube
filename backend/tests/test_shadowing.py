@@ -15,6 +15,66 @@ from backend.app.services.jobs import JobRunner
 from backend.app.services.shadowing_service import handle_shadowing_job
 import backend.app.routers.shadowing as shadowing_router_module
 
+
+def test_v2_reference_recovery_history_replay_and_conflict(shadowing_db, tmp_path, monkeypatch):
+    from backend.app.models import LocalVideoMedia
+    from backend.app.services import local_video
+    from backend.tests.test_phonetics_backend import write_signal
+    engine, runner = shadowing_db
+    _, segments = seed_test_video_and_segments(engine)
+    source = tmp_path / "reference.wav"
+    write_signal(source)
+    monkeypatch.setattr(local_video, "local_media_path", lambda relative: source)
+    with Session(engine) as session:
+        target = session.get(Segment, segments[1].id)
+        target.start_seconds = 0
+        target.end_seconds = 2
+        session.add(target)
+        session.add(LocalVideoMedia(video_id=target.video_id, file_relative_path="reference.wav"))
+        session.commit()
+    # Mock ASR covers orchestration; real FFmpeg and Praat process the waveform.
+    client = TestClient(app)
+    data = {"segment_id": segments[1].id, "client_request_id": "v2-capture", "evaluation_version": "2"}
+    response = client.post("/api/shadowing/evaluate", data=data,
+                           files={"audio_file": ("capture.wav", source.read_bytes(), "audio/wav")})
+    assert response.status_code == 202
+    runner.queue.join()
+    job = runner.get_job(response.json()["job_id"])
+    assert job.status == "succeeded"
+    result = json.loads(job.result_json)
+    assert result["evaluation_version"] == "2"
+    assert result["prosody"]["status"] == "experimental"
+    assert result["prosody"]["pitch_contour_similarity"] is None
+    with Session(engine) as session:
+        assert session.get(Segment, segments[1].id).reference_words_version.startswith("recovered-asr-v1")
+    history = client.get(f"/api/segments/{segments[1].id}/shadowing-attempts").json()
+    assert history["items"][0]["prosody"] == result["prosody"]
+    replay = client.post("/api/shadowing/evaluate", data=data,
+                         files={"audio_file": ("capture.wav", source.read_bytes(), "audio/wav")})
+    assert replay.status_code == 200
+    assert replay.json()["job_id"] == job.id
+    changed = client.post("/api/shadowing/evaluate", data=data,
+                          files={"audio_file": ("capture.wav", create_synthetic_wav(), "audio/wav")})
+    assert changed.status_code == 409
+    assert not Path(json.loads(job.payload_json)["wav_path"]).exists()
+    from backend.app.services.reference_audio import prepare_reference
+    from backend.app.models import ReferenceAnalysisCache
+    scratch = tmp_path / "scratch.wav"
+    first = prepare_reference(segments[1].id, scratch, engine)
+    # Cached reference skips reference ASR as well as reference pitch extraction.
+    from backend.app.services import reference_audio
+    def unexpected_asr(*args, **kwargs):
+        raise AssertionError("Cached reference should not need ASR")
+    monkeypatch.setattr(reference_audio.whisper_engine, "transcribe", unexpected_asr)
+    again = prepare_reference(segments[1].id, scratch, engine)
+    assert again == first
+    # Source replacement invalidates the clip fingerprint; restore ASR for recovery.
+    monkeypatch.undo()
+    monkeypatch.setattr(local_video, "local_media_path", lambda relative: source)
+    write_signal(source, base=220)
+    changed_reference = prepare_reference(segments[1].id, scratch, engine)
+    assert changed_reference["clip_sha256"] != first["clip_sha256"]
+
 def create_synthetic_wav(duration_seconds: float = 2.0, sample_rate: int = 16000) -> bytes:
     """Generate in-memory synthetic 16-bit mono PCM WAV audio using Python standard library."""
     buffer = io.BytesIO()

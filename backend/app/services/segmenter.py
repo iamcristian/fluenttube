@@ -31,6 +31,7 @@ class SegmentDraft(BaseModel):
     start_seconds: float
     end_seconds: float
     text: str
+    reference_words: list[dict] = Field(default_factory=list)
     timing_quality: str = "caption"  # "caption" | "word" | "coarse"
 
 def clean_fragment_text(raw_text: str) -> str:

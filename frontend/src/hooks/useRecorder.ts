@@ -16,6 +16,12 @@ export interface UseRecorderOptions {
 }
 
 export interface UseRecorderReturn {
+  devices: MediaDeviceInfo[];
+  deviceId: string;
+  setDeviceId: (id: string) => void;
+  refreshDevices: () => Promise<void>;
+  inputLevel: number;
+  activeMicrophone: string;
   state: RecorderState;
   isRecording: boolean;
   audioBlob: Blob | null;
@@ -69,6 +75,24 @@ export function useRecorder(options: UseRecorderOptions = {}): UseRecorderReturn
   const discardRecordingRequested = useStudyStore((s) => s.discardRecordingRequested);
 
   const [state, setState] = useState<RecorderState>('idle');
+  const [devices, setDevices] = useState<MediaDeviceInfo[]>([]);
+  const [deviceId, setDevice] = useState(() => { try { return localStorage.getItem('fluenttube.microphone') || ''; } catch { return ''; } });
+  const [inputLevel, setInputLevel] = useState(0);
+  const [activeMicrophone, setActiveMicrophone] = useState('');
+  const meterRef = useRef<{context:AudioContext; timer:number} | null>(null);
+  const refreshDevices = useCallback(async () => {
+    if (!navigator.mediaDevices?.enumerateDevices) return;
+    try { const list = await navigator.mediaDevices.enumerateDevices(); if (Array.isArray(list)) setDevices(list.filter(d => d.kind === 'audioinput')); }
+    catch { setErrorMessage('No se pudo listar los micrófonos. Revisa los permisos del navegador.'); }
+  }, []);
+  const setDeviceId = (id:string) => { setDevice(id); try { localStorage.setItem('fluenttube.microphone',id); } catch {} };
+  useEffect(() => {
+    const media = navigator.mediaDevices;
+    if (!media?.enumerateDevices) return;
+    void refreshDevices();
+    media.addEventListener?.('devicechange',refreshDevices);
+    return () => media.removeEventListener?.('devicechange',refreshDevices);
+  },[refreshDevices]);
   const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
   const [durationSeconds, setDurationSeconds] = useState(0);
@@ -87,6 +111,8 @@ export function useRecorder(options: UseRecorderOptions = {}): UseRecorderReturn
 
   // Release microphone hardware immediately
   const releaseMediaStream = useCallback(() => {
+    if (meterRef.current) { window.clearInterval(meterRef.current.timer); void meterRef.current.context.close(); meterRef.current=null; }
+    setInputLevel(0);
     if (streamRef.current) {
       streamRef.current.getTracks().forEach((track) => {
         try {
@@ -143,6 +169,7 @@ export function useRecorder(options: UseRecorderOptions = {}): UseRecorderReturn
     return () => {
       isMountedRef.current = false;
       isCancelledRef.current = true;
+      if (meterRef.current) { window.clearInterval(meterRef.current.timer); void meterRef.current.context.close(); meterRef.current=null; }
       if (timerRef.current != null) {
         window.clearInterval(timerRef.current);
         timerRef.current = null;
@@ -232,7 +259,7 @@ export function useRecorder(options: UseRecorderOptions = {}): UseRecorderReturn
 
     let stream: MediaStream;
     try {
-      stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      stream = await navigator.mediaDevices.getUserMedia({ audio: deviceId ? {deviceId:{exact:deviceId}} : true });
       if (isCancelledRef.current || !isMountedRef.current) {
         // Late permission arrived after unmount or cancellation! Stop tracks immediately.
         stream.getTracks().forEach((track) => {
@@ -245,6 +272,21 @@ export function useRecorder(options: UseRecorderOptions = {}): UseRecorderReturn
         return;
       }
       streamRef.current = stream;
+      setActiveMicrophone(stream.getAudioTracks()[0]?.label || 'Micrófono predeterminado');
+      void refreshDevices();
+      try {
+        const context = new AudioContext();
+        const analyser = context.createAnalyser(); analyser.fftSize=1024;
+        context.createMediaStreamSource(stream).connect(analyser);
+        const samples = new Float32Array(analyser.fftSize);
+        void context.resume();
+        const timer = window.setInterval(() => {
+          analyser.getFloatTimeDomainData(samples);
+          const rms = Math.sqrt(samples.reduce((sum,n)=>sum+n*n,0)/samples.length);
+          setInputLevel(Math.min(1,rms*5));
+        },100);
+        meterRef.current={context,timer};
+      } catch { /* Recording still works when Web Audio metering is unavailable. */ }
     } catch (err: unknown) {
       if (isCancelledRef.current || !isMountedRef.current) {
         return;
@@ -260,6 +302,8 @@ export function useRecorder(options: UseRecorderOptions = {}): UseRecorderReturn
         setErrorMessage(
           'Microphone permission was denied. Please allow microphone access in your browser site settings and try again.'
         );
+      } else if (error.name === 'OverconstrainedError') {
+        setErrorMessage('El micrófono seleccionado ya no está disponible. Elige otro o Predeterminado.');
       } else if (
         error.name === 'NotFoundError' ||
         error.name === 'DevicesNotFoundError'
@@ -350,6 +394,8 @@ export function useRecorder(options: UseRecorderOptions = {}): UseRecorderReturn
     }
   }, [
     audioUrl,
+    deviceId,
+    refreshDevices,
     maxDurationSeconds,
     onBeforeStart,
     onRecordComplete,
@@ -360,6 +406,7 @@ export function useRecorder(options: UseRecorderOptions = {}): UseRecorderReturn
   ]);
 
   return {
+    devices, deviceId, setDeviceId, refreshDevices, inputLevel, activeMicrophone,
     state,
     isRecording: state === 'recording',
     audioBlob,

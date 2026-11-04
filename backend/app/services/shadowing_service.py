@@ -29,6 +29,9 @@ def handle_shadowing_job(
 
     logger.info(f"Handling shadowing job {job_id} for segment {segment_id}")
 
+    evaluation_version = payload.get("evaluation_version", "1")
+    reference_path = None
+
     # Stage 1: Audio validated & converted
     update_progress("audio_validated", 0.2)
 
@@ -68,6 +71,20 @@ def handle_shadowing_job(
             timing_quality=timing_quality,
         )
 
+        prosody = None
+        if evaluation_version == "2":
+            from backend.app.services.reference_audio import prepare_reference
+            from backend.app.services.prosody import compare_audio
+            reference_path = Path(wav_path_str).with_suffix(".reference.wav")
+            try:
+                provenance = prepare_reference(segment_id, reference_path, active_engine)
+                reference_features = provenance.pop("features")
+                prosody = compare_audio(reference_path, wav_path_str, assessment["word_match_score"], reference_features)
+                prosody["provenance"] = provenance
+            except Exception:
+                logger.warning("Prosody unavailable for segment %s", segment_id, exc_info=True)
+                prosody = {"status": "unavailable", "warning_codes": ["REFERENCE_OR_DSP_UNAVAILABLE"]}
+
         # Stage 4: Persist ShadowingAttempt
         update_progress("saving_attempt", 0.95)
 
@@ -78,6 +95,8 @@ def handle_shadowing_job(
             ).first()
 
             if existing_attempt:
+                existing_attempt.evaluation_version = evaluation_version
+                existing_attempt.prosody_json = json.dumps(prosody, allow_nan=False) if prosody else None
                 existing_attempt.status = assessment["status"]
                 existing_attempt.recognized_text = transcription["text"]
                 existing_attempt.word_match_score = assessment["word_match_score"]
@@ -95,6 +114,8 @@ def handle_shadowing_job(
                 attempt_id = existing_attempt.id
             else:
                 attempt = ShadowingAttempt(
+                    evaluation_version=evaluation_version,
+                    prosody_json=json.dumps(prosody, allow_nan=False) if prosody else None,
                     job_id=job_id,
                     segment_id=segment_id,
                     status=assessment["status"],
@@ -117,6 +138,8 @@ def handle_shadowing_job(
         update_progress("completed", 1.0)
 
         result = {
+            "evaluation_version": evaluation_version,
+            "prosody": prosody,
             "attempt_id": attempt_id,
             "job_id": job_id,
             "segment_id": segment_id,
@@ -149,4 +172,4 @@ def handle_shadowing_job(
     finally:
         # Section 10.2 cleanup: delete converted WAV once evaluation finishes
         if wav_path_str:
-            safe_cleanup(wav_path_str)
+            safe_cleanup(wav_path_str, reference_path)
