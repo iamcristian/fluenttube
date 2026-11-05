@@ -184,9 +184,9 @@ export const ShadowingStudio: React.FC<ShadowingStudioProps> = ({
     try {
       ws = WaveSurfer.create({
         container: waveformContainerRef.current,
-        waveColor: '#475569',
-        progressColor: '#38bdf8',
-        cursorColor: '#f8fafc',
+        waveColor: getComputedStyle(waveformContainerRef.current).getPropertyValue('--color-text-muted').trim(),
+        progressColor: getComputedStyle(waveformContainerRef.current).getPropertyValue('--color-accent').trim(),
+        cursorColor: getComputedStyle(waveformContainerRef.current).getPropertyValue('--color-text-primary').trim(),
         barWidth: 2,
         barGap: 1,
         barRadius: 2,

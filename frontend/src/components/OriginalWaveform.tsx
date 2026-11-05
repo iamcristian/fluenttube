@@ -18,7 +18,7 @@ export function OriginalWaveform({segmentId,features,paused,disabled,onPlay,onFa
     setError(false);setReady(false);setPlaying(false);
     if (!container.current) return;
     try {
-      ws=WaveSurfer.create({container:container.current,url:apiClient.getReferenceAudioUrl(segmentId),waveColor:'#64748b',progressColor:'#2dd4bf',cursorColor:'#f8fafc',barWidth:2,barGap:1,barRadius:2,height:32});
+      ws=WaveSurfer.create({container:container.current,url:apiClient.getReferenceAudioUrl(segmentId),waveColor:getComputedStyle(container.current).getPropertyValue('--color-text-muted').trim(),progressColor:getComputedStyle(container.current).getPropertyValue('--color-accent').trim(),cursorColor:getComputedStyle(container.current).getPropertyValue('--color-text-primary').trim(),barWidth:2,barGap:1,barRadius:2,height:32});
       player.current=ws;
       ws.on('ready',()=>{if(active)setReady(true);});
       ws.on('error',()=>{if(active)setError(true);});

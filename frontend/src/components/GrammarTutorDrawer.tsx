@@ -136,10 +136,10 @@ export const GrammarTutorDrawer: React.FC<GrammarTutorDrawerProps> = ({
         role="dialog"
         aria-modal="true"
         aria-labelledby="tutor-drawer-title"
-        className="fixed inset-y-0 right-0 z-50 w-full sm:w-[480px] bg-[#121824] border-l border-border shadow-2xl flex flex-col text-slate-100 overflow-hidden"
+        className="fixed inset-y-0 right-0 z-50 w-full sm:w-[480px] bg-surface border-l border-border shadow-2xl flex flex-col text-slate-100 overflow-hidden"
       >
         {/* Header */}
-        <header className="px-5 py-4 border-b border-border/80 bg-[#151D2A] flex items-center justify-between shrink-0">
+        <header className="px-5 py-4 border-b border-border/80 bg-surface-raised flex items-center justify-between shrink-0">
           <div className="flex items-center space-x-2.5">
             <div className="p-1.5 rounded-lg bg-accent/15 text-accent border border-accent/30">
               <Sparkles className="w-4 h-4" />

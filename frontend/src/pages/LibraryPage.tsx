@@ -184,7 +184,7 @@ export const LibraryPage: React.FC<LibraryPageProps> = ({
           </div>
         </div>
       </header>
-      <main id="main-content" className="library-shell py-8 sm:py-12 space-y-9">
+      <main id="main-content" className="library-shell py-8 sm:py-12 pb-24 sm:pb-24 space-y-9">
         <section className="library-hero">
           <div className="relative z-10 max-w-xl">
             <p className="eyebrow mb-4">
@@ -255,7 +255,7 @@ export const LibraryPage: React.FC<LibraryPageProps> = ({
           </div>
         </section>
         {!isLoading && !isError && videos.length > 0 && (
-          <div className="flex flex-wrap gap-x-8 gap-y-3 text-sm text-text-secondary border-b border-border-subtle pb-6">
+          <div className="library-stats">
             <span>
               <strong className="text-white text-lg mr-2">
                 {videos.length}
@@ -323,7 +323,7 @@ export const LibraryPage: React.FC<LibraryPageProps> = ({
             <div
               role="group"
               aria-label="Filter videos"
-              className="flex flex-wrap gap-2"
+              className="library-filters"
             >
               {filters.map((f) => (
                 <button
@@ -418,7 +418,7 @@ export const LibraryPage: React.FC<LibraryPageProps> = ({
                 return (
                   <article key={v.id} className="video-card group">
                     <div className="relative aspect-video bg-surface-raised overflow-hidden">
-                      <div className="w-full h-full flex flex-col items-center justify-center gap-3 bg-gradient-to-br from-accent/10 to-background text-accent"><Film size={40} /><span className="text-sm">{v.source_type === 'unavailable' ? 'Media unavailable' : 'Local video'}</span></div>
+                      <div className="w-full h-full flex flex-col items-center justify-center gap-3 bg-background text-text-muted"><Film size={40} /><span className="text-sm">{v.source_type === 'unavailable' ? 'Media unavailable' : 'Local video'}</span></div>
                       <span className="absolute bottom-3 right-3 bg-black/80 text-white rounded-md text-xs px-2 py-1 tabular-nums">
                         {formatDuration(v.duration_seconds)}
                       </span>
@@ -517,7 +517,7 @@ export const LibraryPage: React.FC<LibraryPageProps> = ({
             {removeError && <p role="alert" className="mt-4 text-sm text-danger">{removeError}</p>}
             <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
               <button type="button" className="secondary-button justify-center" onClick={() => { setVideoToRemove(null); setRemoveError(''); }} disabled={removeVideo.isPending}>Keep video</button>
-              <button type="button" className="inline-flex items-center justify-center gap-2 rounded-xl bg-danger px-4 py-2.5 text-sm font-semibold text-white hover:brightness-110 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-danger disabled:opacity-60" onClick={() => removeVideo.mutate(videoToRemove.id)} disabled={removeVideo.isPending}>
+              <button type="button" className="inline-flex items-center justify-center gap-2 rounded-xl bg-danger px-4 py-2.5 text-sm font-semibold text-background hover:brightness-110 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-danger disabled:opacity-60" onClick={() => removeVideo.mutate(videoToRemove.id)} disabled={removeVideo.isPending}>
                 <Trash2 size={16} />
                 {removeVideo.isPending ? 'Removing…' : 'Remove video'}
               </button>

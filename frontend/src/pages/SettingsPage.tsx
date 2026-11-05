@@ -73,7 +73,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ onBackToLibrary }) =
       </header>
 
       {/* Main Settings Content */}
-      <main id="main-content" className="flex-1 max-w-5xl w-full mx-auto p-4 sm:p-6 space-y-6">
+      <main id="main-content" className="flex-1 max-w-5xl w-full mx-auto p-4 sm:p-6 pb-24 sm:pb-24 space-y-6">
         {/* Section 2: Local User Preferences */}
         <section aria-labelledby="preferences-heading" className="p-6 rounded-panel bg-surface border border-border space-y-5">
           <div className="flex items-center space-x-2 border-b border-border/80 pb-3">
@@ -127,7 +127,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ onBackToLibrary }) =
                   type="checkbox"
                   checked={autoLoop}
                   onChange={(e) => setAutoLoop(e.target.checked)}
-                  className="w-4 h-4 rounded text-accent focus:ring-accent bg-surface-raised border-border"
+                  className="settings-toggle"
                 />
                 <span className="text-xs text-slate-300">
                   {autoLoop ? 'Auto-loop enabled' : 'Play once and pause'}
@@ -149,7 +149,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ onBackToLibrary }) =
                   type="checkbox"
                   checked={soundEffect}
                   onChange={(e) => setSoundEffect(e.target.checked)}
-                  className="w-4 h-4 rounded text-accent focus:ring-accent bg-surface-raised border-border"
+                  className="settings-toggle"
                 />
                 <span className="text-xs text-slate-300">
                   {soundEffect ? 'Sound effects enabled' : 'Muted'}
@@ -273,7 +273,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ onBackToLibrary }) =
               To protect your credentials, <strong className="text-white">API keys are never entered in the web interface</strong> or exposed in client bundles. Configure your Gemini API key in the backend environment file.
             </p>
 
-            <div className="p-4 rounded-control bg-background border border-border font-mono text-[11px] text-slate-300 space-y-1">
+            <div className="p-4 rounded-control bg-background border border-border font-mono text-[11px] text-text-secondary break-all space-y-1">
               <p className="text-text-secondary"># In backend/.env:</p>
               <p className="text-accent">TUTOR_ENABLED=true</p>
               <p className="text-emerald-400">GEMINI_API_KEY=AIzaSyYourActualApiKeyHere</p>

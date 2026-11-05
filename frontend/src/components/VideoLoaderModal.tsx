@@ -177,11 +177,11 @@ export const VideoLoaderModal: React.FC<VideoLoaderModalProps> = ({
         if (e.target === e.currentTarget) handleClose();
       }}
     >
-      <div ref={dialogRef} className="relative w-full max-w-lg bg-surface border border-border rounded-2xl shadow-2xl p-6 text-slate-100 max-h-[90dvh] overflow-y-auto">
+      <div ref={dialogRef} className="relative w-full max-w-lg bg-surface border border-border rounded-panel shadow-2xl p-6 text-text-primary max-h-[90dvh] overflow-y-auto">
         {/* Header */}
-        <div className="flex items-center justify-between pb-4 border-b border-slate-800">
+        <div className="flex items-center justify-between gap-3 pb-4 border-b border-border-subtle">
           <div className="flex items-center space-x-2.5">
-            <div className="p-2 rounded-lg bg-red-600/20 text-red-400">
+            <div className="p-2 rounded-control bg-accent/10 text-accent">
               <FileVideo className="w-5 h-5" />
             </div>
             <h2 id="modal-title" className="text-lg font-semibold text-white">
@@ -192,7 +192,7 @@ export const VideoLoaderModal: React.FC<VideoLoaderModalProps> = ({
             type="button"
             onClick={handleClose}
             aria-label="Close modal"
-            className="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition"
+            className="p-1.5 shrink-0 text-text-secondary hover:text-white rounded-control hover:bg-surface-raised transition"
           >
             <X className="w-5 h-5" />
           </button>
@@ -216,14 +216,14 @@ export const VideoLoaderModal: React.FC<VideoLoaderModalProps> = ({
                 <button
                   type="button"
                   onClick={handleClose}
-                  className="px-4 py-2 text-sm font-medium text-slate-300 hover:text-white hover:bg-slate-800 rounded-xl transition"
+                  className="secondary-button"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="flex items-center space-x-2 px-5 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed rounded-xl shadow-lg shadow-blue-600/20 transition"
+                  className="primary-button"
                 >
                   {isSubmitting ? (
                     <>
@@ -244,14 +244,14 @@ export const VideoLoaderModal: React.FC<VideoLoaderModalProps> = ({
             <div className="space-y-5" aria-live="polite">
               {jobError && <div role="alert" className="rounded-xl border border-danger/30 bg-danger/10 p-4 text-sm space-y-3"><p>We couldn’t check this import. Try reconnecting, or return to the import form.</p><div className="flex flex-wrap gap-2"><button className="secondary-button" onClick={() => retryJob()}>Retry connection</button><button className="quiet-button" onClick={handleReset}>Back to import</button></div></div>}
               <div className="flex items-center justify-between">
-                <span className="text-xs font-medium text-slate-400">Import status</span>
+                <span className="text-xs font-medium text-text-secondary">Import status</span>
                 <span
                   className={`text-xs px-2.5 py-1 rounded-full font-semibold uppercase tracking-wider ${
                     job?.status === 'succeeded'
-                      ? 'bg-emerald-950/60 text-emerald-400 border border-emerald-800/50'
+                      ? 'bg-success/10 text-success border border-success/30'
                       : job?.status === 'failed'
-                      ? 'bg-red-950/60 text-red-400 border border-red-800/50'
-                      : 'bg-blue-950/60 text-blue-400 border border-blue-800/50 animate-pulse'
+                      ? 'bg-danger/10 text-danger border border-danger/30'
+                      : 'bg-accent/10 text-accent border border-accent/30 animate-pulse'
                   }`}
                 >
                   {failed ? 'Needs attention' : job?.status === 'running' ? 'Preparing' : job?.status === 'succeeded' ? 'Ready' : 'Waiting'}
@@ -260,17 +260,17 @@ export const VideoLoaderModal: React.FC<VideoLoaderModalProps> = ({
 
               {/* Progress bar */}
               {!failed && <div className="space-y-2">
-                <div className="flex justify-between text-xs text-slate-300">
+                <div className="flex justify-between text-xs text-text-secondary">
                   <span>{job?.stage ? STAGE_LABELS[job.stage] || job.stage : 'Preparing task...'}</span>
-                  <span className="font-mono text-slate-400">
+                  <span className="font-mono text-text-secondary">
                     {job?.progress !== null && job?.progress !== undefined
                       ? `${Math.round(job.progress * 100)}%`
                       : '...'}
                   </span>
                 </div>
-                <div className="w-full h-2.5 bg-slate-800 rounded-full overflow-hidden">
+                <div className="w-full h-2.5 bg-surface-raised rounded-full overflow-hidden">
                   <div
-                    className="h-full bg-blue-500 rounded-full transition-all duration-300"
+                    className="h-full bg-accent rounded-full transition-all duration-300"
                     style={{
                       width: `${
                         job?.progress !== null && job?.progress !== undefined
@@ -308,8 +308,8 @@ export const VideoLoaderModal: React.FC<VideoLoaderModalProps> = ({
                 </div>
               )}
 
-              <div className="flex items-center justify-between pt-2 border-t border-slate-800/80">
-                <p className="text-xs text-slate-500">
+              <div className="flex items-center justify-between pt-2 border-t border-border-subtle">
+                <p className="text-xs text-text-muted">
                   {canResumeLocal ? 'Your file is saved on this computer. Completed parts will not be transcribed again.' : failed ? 'You can return to your library and practice another video.' : 'You can close this window; the process will continue in the background.'}
                 </p>
                 {job?.status === 'failed' ? (

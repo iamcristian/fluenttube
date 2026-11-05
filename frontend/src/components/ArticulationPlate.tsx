@@ -36,21 +36,21 @@ function VowelView({ model, ipa, progress }: { model: Extract<Diagram, {kind:'vo
   const crestX = 109 + 71*front;
   const crestY = 66 + 38*height;
   return <svg viewBox="0 0 370 365" role="img" aria-label={`Mapa vocálico de /${ipa}/. ${lipLabels[model.lips]}.`}>
-    <defs><marker id={arrow} viewBox="0 0 8 8" refX="7" refY="4" markerWidth="4" markerHeight="4" orient="auto"><path d="M0 0L8 4L0 8" fill="#76e3cc"/></marker></defs>
+    <defs><marker id={arrow} viewBox="0 0 8 8" refX="7" refY="4" markerWidth="4" markerHeight="4" orient="auto"><path d="M0 0L8 4L0 8" fill="var(--color-accent)"/></marker></defs>
     <text x="15" y="20" className="plate-kicker">CORTE LATERAL · FRENTE A LA IZQUIERDA</text>
     <path d="M49 93 Q53 54 93 39 Q149 21 188 39 Q214 47 224 66 Q248 80 246 147 L231 147 Q237 102 212 80 Q196 58 169 52 Q126 45 97 61 L73 83 L64 94Z" fill="#41535d" stroke="#a4b3b7"/>
     <path d="M61 87 L75 82 L72 98 L64 101Z" fill="#e5e1cb"/>
     <path d={`M56 ${108+height*11} Q84 ${139+height*12} 145 142 Q195 144 218 152 L203 161 Q101 158 66 138Z`} fill="#926e70" stroke="#c59a94"/>
     <path d={`M76 121 Q91 120 ${crestX-25} ${crestY+20} Q${crestX} ${crestY-12} ${crestX+27} ${crestY+13} Q210 105 223 142 L210 149 Q172 128 133 139 Q96 143 76 121Z`} fill="#b77d80" stroke="#f1b3ad" strokeWidth="1.6"/>
-    <circle cx={crestX} cy={crestY+3} r="4" fill="#7ee9d2"/><path d={`M${crestX+4} ${crestY+3} H250`} stroke="#7ee9d2" strokeDasharray="3 3"/>
+    <circle cx={crestX} cy={crestY+3} r="4" fill="var(--color-accent)"/><path d={`M${crestX+4} ${crestY+3} H250`} stroke="var(--color-accent)" strokeDasharray="3 3"/>
     <text x="254" y={crestY+6} className="plate-label">Dorso lingual</text>
     <g transform="translate(0 162)">
     <text x="15" y="20" className="plate-kicker">MAPA VOCÁLICO</text>
-    <path d="M44 51H222V155H108Z" fill="#18303a" stroke="#65808b"/>
+    <path d="M44 51H222V155H108Z" fill="var(--color-bg-surface)" stroke="#65808b"/>
     <path d="M65 86H222 M87 120H222 M133 51L165 155" stroke="#425760" strokeDasharray="3 4"/>
     <g className="plate-label"><text x="35" y="42">Anterior</text><text x="194" y="42">Posterior</text><text x="16" y="68">Alta</text><text x="61" y="159">Baja</text></g>
-    {end && <><path d={`M${start} L${end}`} stroke="#76e3cc" strokeWidth="3" markerEnd={`url(#${arrow})`}/><circle cx={start[0]} cy={start[1]} r="4" fill="#a8c1c8"/></>}
-    <circle cx={p[0]} cy={p[1]} r="7" fill="#76e3cc" stroke="#101c24" strokeWidth="2"/>
+    {end && <><path d={`M${start} L${end}`} stroke="var(--color-accent)" strokeWidth="3" markerEnd={`url(#${arrow})`}/><circle cx={start[0]} cy={start[1]} r="4" fill="#a8c1c8"/></>}
+    <circle cx={p[0]} cy={p[1]} r="7" fill="var(--color-accent)" stroke="#101c24" strokeWidth="2"/>
     <path d="M243 35V164" stroke="#354851"/><text x="260" y="42" className="plate-label">Labios · frente</text>
     <path d={`M${307-lipWidth-6} 98 Q286 80 300 84 Q306 88 312 84 Q330 80 ${307+lipWidth+6} 98 Q311 128 ${307-lipWidth-6} 98Z`} fill="#ac7273" stroke="#efb3a7"/>
     <ellipse cx="307" cy="99" rx={lipWidth} ry={aperture} fill="#19232a" stroke="#e9b2a5"/>
@@ -83,8 +83,8 @@ function ConsonantView({ model, progress }: { model: Extract<Diagram,{kind:'cons
     <path d={tongue} fill="#b77d80" stroke="#f1b3ad" strokeWidth="1.5"/>
     <path d="M221 77Q237 79 238 95" fill="none" stroke="#c49b96" strokeWidth="7" strokeLinecap="round" transform={nasal ? 'rotate(20 221 77)' : undefined}/>
     {nasal && <path d="M245 146Q261 84 228 66Q167 26 64 75L53 79" fill="none" stroke="#78dccd" strokeWidth="3" strokeDasharray="5 3"/>}
-    {place === 'labiovelar' && <circle cx="43" cy="120" r="11" fill="none" stroke="#76e3cc" strokeDasharray="3 2"/>}
-    <circle cx={x} cy={y} r="9" fill="none" stroke="#7ee9d2" strokeWidth="2"/>
+    {place === 'labiovelar' && <circle cx="43" cy="120" r="11" fill="none" stroke="var(--color-accent)" strokeDasharray="3 2"/>}
+    <circle cx={x} cy={y} r="9" fill="none" stroke="var(--color-accent)" strokeWidth="2"/>
     <path d={`M${x} ${y-10} L${x+15} ${y-24} H270`} fill="none" stroke="#72b8ae" strokeWidth="1"/>
     <path d="M277 38V185" stroke="#354851"/><text x="288" y="54" className="plate-label">Laringe</text>
     <path d={voiced ? 'M287 83h5l4-11 5 22 5-22 5 22 5-22 5 22 5-22 5 22 4-11h15' : 'M287 83h68'} fill="none" stroke="#efbe75" strokeWidth="2.5"/>

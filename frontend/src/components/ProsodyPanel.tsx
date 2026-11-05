@@ -13,9 +13,9 @@ export function Contour({ features, label }: { features: AcousticFeatures; label
   if (path) points.push(path);
   return <figure className="pitch-contour space-y-2"><figcaption>{label} · {features.duration_seconds.toFixed(2)} s</figcaption>
     <svg viewBox="0 0 500 145" preserveAspectRatio="none" role="img" aria-label={`${label} relative pitch contour`} className="w-full bg-surface rounded">
-      <path d="M12 70 H488" stroke="#64748b" strokeDasharray="4 4" />
-      {points.map((data, index) => <path key={index} d={data} fill="none" stroke={['Reference','Original'].includes(label) ? '#2dd4bf' : '#fb7185'} strokeWidth="2" />)}
-      <text x="14" y="140" fill="#94a3b8" fontSize="10">Time within this take · pitch relative to its median (±18 semitones)</text>
+      <path d="M12 70 H488" stroke="var(--color-border)" strokeDasharray="4 4" />
+      {points.map((data, index) => <path key={index} d={data} fill="none" stroke={['Reference','Original'].includes(label) ? 'var(--color-accent)' : 'var(--color-danger)'} strokeWidth="2" />)}
+      <text x="14" y="140" fill="var(--color-text-muted)" fontSize="10">Time within this take · pitch relative to its median (±18 semitones)</text>
     </svg>
     <p className="text-xs">Pitch range {features.pitch_range_semitones === null ? 'unavailable' : features.pitch_range_semitones.toFixed(1) + ' st'} · voiced frames {Math.round(features.voiced_ratio * 100)}%</p>
     <p className="text-xs">Estimated pauses {features.pauses.length ? features.pauses.map(pause => `${pause.start_seconds.toFixed(2)}–${pause.end_seconds.toFixed(2)} s`).join(', ') : 'none detected'}</p>

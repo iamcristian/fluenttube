@@ -175,7 +175,7 @@ export const VideoPlayer = forwardRef<VideoPlayerRef, VideoPlayerProps>(({
         {/* Loading overlay */}
         {isLoading && !error && (
           <div
-            className="absolute inset-0 bg-[#0B1120]/80 backdrop-blur-xs flex flex-col items-center justify-center p-4 space-y-2 pointer-events-none"
+            className="absolute inset-0 bg-background/80 backdrop-blur-xs flex flex-col items-center justify-center p-4 space-y-2 pointer-events-none"
             aria-live="polite"
           >
             <Loader2 className="w-8 h-8 text-accent animate-spin" />
@@ -209,7 +209,7 @@ export const VideoPlayer = forwardRef<VideoPlayerRef, VideoPlayerProps>(({
         {error && (
           <div
             role="alert"
-            className="absolute inset-0 bg-[#0B1120]/95 backdrop-blur-sm flex flex-col items-center justify-center p-6 text-center space-y-3 z-10"
+            className="absolute inset-0 bg-background/95 backdrop-blur-sm flex flex-col items-center justify-center p-6 text-center space-y-3 z-10"
           >
             <div className="w-12 h-12 rounded-full bg-danger/10 border border-danger/30 flex items-center justify-center text-danger">
               <AlertTriangle className="w-6 h-6" />
