@@ -6,6 +6,8 @@ Una app para practicar inglés con videos: **escucha una frase, escribe lo que o
 
 ## Capturas
 
+Interfaz en tonos carbón y azul, capturada con contenido sintético en una biblioteca de demostración aislada. Consulta las [notas de las capturas](docs/assets/screenshots/README.md) para más detalles.
+
 Pantallas reales de la app con contenido ficticio, capturadas en una biblioteca de demostración separada.
 
 | Tu biblioteca | Dictado y feedback |

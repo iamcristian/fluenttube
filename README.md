@@ -28,7 +28,7 @@ FluentTube turns English speech into short exercises. Import a video, listen to 
 
 ## Screenshots
 
-Real app screenshots captured with synthetic demo content in an isolated library.
+The charcoal and blue interface, captured from the running app with synthetic content in an isolated demo library. See the [screenshots notes](docs/assets/screenshots/README.md) for details.
 
 | Your library | Dictation feedback |
 | :---: | :---: |
